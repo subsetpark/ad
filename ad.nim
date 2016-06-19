@@ -1,10 +1,3 @@
-let doc = """
-Simple Reverse Polish Calculator.
-
-Usage:
-  ad <exp>...
-  ad
-"""
 import docopt, strutils, math, future, sequtils
 
 type 
@@ -14,21 +7,29 @@ type
     times
     into
     power
-    identity
+    left
   UnaryOperator = enum
     squared
     positive
   StackOperator = enum
-    noop
     showLast
-    exit
     showStack
     clear
+    exit
+    noop
   Stack = seq[float]
+
+const doc = """
+Simple Reverse Polish Calculator.
+
+Usage:
+  ad <exp>...
+  ad
+"""
 
 const binaryTokens = ["+", "-", "*", "/", "^", "**", "pow"]
 const unaryTokens = ["sqr"]
-const stackTokens = ["p", "q", "s", "c"]
+const stackTokens = ["p", "peek", "q", "quit", "s", "show", "stack", "c", "clear"]
 
 proc `$`(n: float): string =
   ## Overridden toString operator. Numbers are stored as floats, but will be
@@ -40,10 +41,10 @@ proc `$`(n: float): string =
 
 proc peek(stack: Stack) = 
   ## Display the top element of the stack.
-  try:
+  if len(stack) > 0:
     let r = stack[stack.high]
     echo $r
-  except IndexError:
+  else:
     echo ""
 
 proc show(stack: Stack) =
@@ -73,20 +74,22 @@ proc eval(op: UnaryOperator, x: float): float =
       pow(x, x)
     else:
       x
-proc eval(stack: Stack, op: StackOperator) =
+proc eval(stack: Stack, op: StackOperator): Stack =
   ## Evaluation of stack operations.
   case op:
     of showLast:
       stack.peek()
+      result = stack
     of showStack:
       stack.show()
+      result = stack
+    of clear:
+      result = newSeq[float]()
     of exit:
       stack.peek()
       quit()
-    of clear:
-      result 
-    else:
-      discard
+    of noop:
+      result = stack
 
 proc operate(stack: Stack, op: BinaryOperator): Stack =
   ## Processing a binary operator: pop the last two items on the stack and push
@@ -107,7 +110,6 @@ proc operate(stack: Stack, op: UnaryOperator): Stack =
 proc operate(stack: Stack, op: StackOperator): Stack =
   ## Processing stack operators: evaluate using the whole stack.
   eval(stack, op)
-  result = stack
 
 proc ingest(stack: Stack, t: string): Stack =
   ## Given a token, convert the token into a float or operator and then process
@@ -121,10 +123,8 @@ proc ingest(stack: Stack, t: string): Stack =
       of "-": minus
       of "*": times
       of "/": into
-      of "**": power
-      of "^": power
-      of "pow": power
-      else: identity
+      of "**", "^", "pow": power
+      else: left
     result = result.operate(o)
   elif t in unaryTokens:
     let o = case t
@@ -133,13 +133,12 @@ proc ingest(stack: Stack, t: string): Stack =
     result = result.operate(o)
   elif t in stackTokens:
     let o = case t
-      of "p": showLast
-      of "q": exit
-      of "s": showStack
+      of "p", "peek": showLast
+      of "q", "quit": exit
+      of "s", "show", "stack": showStack
+      of "c", "clear": clear
       else: noop
     result = result.operate(o)
-  else: 
-    result = result
 
 proc ingestLine(stack: var Stack, tokens: seq[string]) = 
   ## Process an entire line of tokens.
