@@ -31,12 +31,15 @@ const unaryTokens = ["sqr"]
 const stackTokens = ["p", "q", "s", "c"]
 
 proc `$`(n: float): string =
+  ## Overridden toString operator. Numbers are stored as floats, but will be
+  ## displayed as integers if possible.
   if fmod(n, 1.0) == 0:
     $int(n)
   else:
     system.`$` n
 
 proc peek(stack: Stack) = 
+  ## Display the top element of the stack.
   try:
     let r = stack[stack.high]
     echo $r
@@ -44,6 +47,7 @@ proc peek(stack: Stack) =
     echo ""
 
 proc show(stack: Stack) =
+  ## Display the whole stack.
   echo join(stack, " ")
 
 
@@ -79,10 +83,14 @@ proc eval(stack: Stack, op: StackOperator) =
     of exit:
       stack.peek()
       quit()
+    of clear:
+      result 
     else:
       discard
 
 proc operate(stack: Stack, op: BinaryOperator): Stack =
+  ## Processing a binary operator: pop the last two items on the stack and push
+  ## the result.
   result = stack
   let 
     y = result.pop()
@@ -90,15 +98,20 @@ proc operate(stack: Stack, op: BinaryOperator): Stack =
   result.add(eval(op, x, y))
 
 proc operate(stack: Stack, op: UnaryOperator): Stack =
+  ## Processing a unary operator: pop the last item on the stack and push the
+  ## result.
   result = stack
   let x = result.pop()
   result.add(eval(op, x))
 
 proc operate(stack: Stack, op: StackOperator): Stack =
+  ## Processing stack operators: evaluate using the whole stack.
   eval(stack, op)
   result = stack
 
 proc ingest(stack: Stack, t: string): Stack =
+  ## Given a token, convert the token into a float or operator and then process
+  ## it as appropriate.
   result = stack
   if t.isDigit: 
     result.add(parseFloat t)
@@ -129,10 +142,12 @@ proc ingest(stack: Stack, t: string): Stack =
     result = result
 
 proc ingestLine(stack: var Stack, tokens: seq[string]) = 
+  ## Process an entire line of tokens.
   for t in tokens:
     stack = stack.ingest(t)
 
 proc ingestLine(stack: var Stack, input: string) =
+  ## Tokenize a line of input and then process it.
   let tokens = input.split()
   stack.ingestLine(tokens)
 
