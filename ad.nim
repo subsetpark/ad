@@ -3,68 +3,158 @@ Simple Reverse Polish Calculator.
 
 Usage:
   ad <exp>...
+  ad
 """
-import docopt, strutils, math
+import docopt, strutils, math, future, sequtils
 
 type 
-  Operator = enum
-    Plus = "+"
-    Minus = "-"
-    Times = "*"
-    Into = "/"
-    Noop = ""
+  BinaryOperator = enum
+    plus
+    minus
+    times
+    into
+    power
+    identity
+  UnaryOperator = enum
+    squared
+    positive
+  StackOperator = enum
+    noop
+    showLast
+    exit
+    showStack
+    clear
   Stack = seq[float]
 
-proc newOperator(t: string): Operator = 
-  case t
-    of "+": Plus
-    of "-": Minus
-    of "*": Times
-    of "/": Into
-    else: Noop
+const binaryTokens = ["+", "-", "*", "/", "^", "**", "pow"]
+const unaryTokens = ["sqr"]
+const stackTokens = ["p", "q", "s", "c"]
 
-proc eval(op: Operator; x, y: float): float =
+proc `$`(n: float): string =
+  if fmod(n, 1.0) == 0:
+    $int(n)
+  else:
+    system.`$` n
+
+proc peek(stack: Stack) = 
+  try:
+    let r = stack[stack.high]
+    echo $r
+  except IndexError:
+    echo ""
+
+proc show(stack: Stack) =
+  echo join(stack, " ")
+
+
+proc eval(op: BinaryOperator; x, y: float): float =
+  ## Evaluation of binary operations.
   case op:
-    of Plus:
+    of plus:
       x + y
-    of Minus:
+    of minus:
       x - y
-    of Times:
+    of times:
       x * y
-    else:
+    of into:
       x / y 
+    of power:
+      pow(x, y)
+    else:
+      x
+proc eval(op: UnaryOperator, x: float): float =
+  ## Evaluation of unary operations.
+  case op:
+    of squared:
+      pow(x, x)
+    else:
+      x
+proc eval(stack: Stack, op: StackOperator) =
+  ## Evaluation of stack operations.
+  case op:
+    of showLast:
+      stack.peek()
+    of showStack:
+      stack.show()
+    of exit:
+      stack.peek()
+      quit()
+    else:
+      discard
 
-proc operate(stack: var Stack, op: Operator): void =
-  let y = stack.pop()
-  let x = stack.pop()
-  stack.add(eval(op, x, y))
+proc operate(stack: Stack, op: BinaryOperator): Stack =
+  result = stack
+  let 
+    y = result.pop()
+    x = result.pop()
+  result.add(eval(op, x, y))
 
-proc ingest(stack: var Stack, t: string): void =
+proc operate(stack: Stack, op: UnaryOperator): Stack =
+  result = stack
+  let x = result.pop()
+  result.add(eval(op, x))
+
+proc operate(stack: Stack, op: StackOperator): Stack =
+  eval(stack, op)
+  result = stack
+
+proc ingest(stack: Stack, t: string): Stack =
+  result = stack
   if t.isDigit: 
-    stack.add(parseFloat t)
-  else:
-    stack.operate(newOperator t)
+    result.add(parseFloat t)
+  elif t in binaryTokens:
+    let o = case t
+      of "+": plus
+      of "-": minus
+      of "*": times
+      of "/": into
+      of "**": power
+      of "^": power
+      of "pow": power
+      else: identity
+    result = result.operate(o)
+  elif t in unaryTokens:
+    let o = case t
+      of "sqr": squared
+      else: positive
+    result = result.operate(o)
+  elif t in stackTokens:
+    let o = case t
+      of "p": showLast
+      of "q": exit
+      of "s": showStack
+      else: noop
+    result = result.operate(o)
+  else: 
+    result = result
 
-proc print(stack: var Stack): void = 
-  let r = stack[stack.high]
-  if fmod(r, 1.0) == 0:
-    echo $int(r)
-  else:
-    echo r
+proc ingestLine(stack: var Stack, tokens: seq[string]) = 
+  for t in tokens:
+    stack = stack.ingest(t)
 
-var stack: Stack = @[]
+proc ingestLine(stack: var Stack, input: string) =
+  let tokens = input.split()
+  stack.ingestLine(tokens)
 
 let args = docopt(doc, version="AD 1")
 
-try:
-  for t in @(args["<exp>"]):
-    stack.ingest(t)
+var stack: Stack = @[]
 
-  if len(stack) > 0:
-    stack.print()
-  if len(stack) > 1:
-    echo "Elements remaining: $1" % $stack[..(stack.high-1)]
-except IndexError:
-  quit "Imbalanced input."
+if args["<exp>"]:
+  try:
+    stack.ingestLine(@(args["<exp>"]))
+  except IndexError:
+    quit("Imbalanced input.")
+else:
+  while true:
+    stdout.write "> "
+    let input = readLine stdin
+    try:
+      stack.ingestLine(input)
+    except IndexError:
+      echo "Not enough stack."
 
-
+if len(stack) > 0:
+  stack.peek()
+if len(stack) > 1:
+  echo "Elements remaining: " & $stack[..(stack.high-1)]
