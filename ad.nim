@@ -4,65 +4,67 @@ Simple Reverse Polish Calculator.
 Usage:
   ad <exp>...
 """
-import docopt, strutils, future
+import docopt, strutils, math
 
 type 
   Operator = enum
     Plus = "+"
     Minus = "-"
-  ElementKind = enum
-    ekOperator, ekNumber
-  Element = object
-    case kind: ElementKind
-    of ekOperator:
-      operator: Operator
-    of ekNumber:
-      value: int
+    Times = "*"
+    Into = "/"
+    Noop = ""
+  Stack = seq[float]
 
-proc getElement(t: string): Element = 
-  if t.isDigit: 
-    Element(kind: ekNumber, value: parseInt(t))
-  else:
-    let operator= case t
-      of "+": Plus
-      of "-": Minus
-      else: Plus
-    Element(kind: ekOperator, operator: operator)
+proc newOperator(t: string): Operator = 
+  case t
+    of "+": Plus
+    of "-": Minus
+    of "*": Times
+    of "/": Into
+    else: Noop
 
-proc getElement(n: int): Element = Element(kind: ekNumber, value: n)
-
-proc eval(op, x, y: Element): int =
-  case op.operator:
+proc eval(op: Operator; x, y: float): float =
+  case op:
     of Plus:
-      x.value + y.value
+      x + y
     of Minus:
-      x.value - y.value
+      x - y
+    of Times:
+      x * y
+    else:
+      x / y 
 
+proc operate(stack: var Stack, op: Operator): void =
+  let y = stack.pop()
+  let x = stack.pop()
+  stack.add(eval(op, x, y))
 
-proc ingest(stack: var seq[Element], e: Element): seq[Element] =
-  result = stack
-  if e.kind == ekOperator:
-    let y = pop(stack)
-    let x = pop(stack)
-    stack.add(getElement eval(e, x, y))
+proc ingest(stack: var Stack, t: string): void =
+  if t.isDigit: 
+    stack.add(parseFloat t)
   else:
-    stack.add(e)
+    stack.operate(newOperator t)
 
+proc print(stack: var Stack): void = 
+  let r = stack[stack.high]
+  if fmod(r, 1.0) == 0:
+    echo $int(r)
+  else:
+    echo r
 
-var 
-  stack = newSeq[Element]()
+var stack: Stack = @[]
 
 let args = docopt(doc, version="AD 1")
 
 try:
   for t in @(args["<exp>"]):
-    discard stack.ingest(getElement t)
+    stack.ingest(t)
 
   if len(stack) > 0:
-    echo $stack.pop().value
-  if len(stack) > 0:
-    echo "Elements remaining: $1" % [$lc[e.value | (e <- stack), int]]
+    stack.print()
+  if len(stack) > 1:
+    echo "Elements remaining: $1" % $stack[..(stack.high-1)]
 except IndexError:
-  echo "Imbalanced input."
+  quit "Imbalanced input."
 
 
