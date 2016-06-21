@@ -11,7 +11,10 @@ type
     left
   UnaryOperator = enum
     squared
+    negative
+    absolute
     positive
+    squareRoot
   StackOperator = enum
     showLast
     showStack
@@ -33,8 +36,8 @@ will enter interactive mode, where you can
 use it as a shell for running calculations.
 """
 
-const binaryTokens = ["+", "-", "*", "/", "^", "**", "pow"]
-const unaryTokens = ["sqr"]
+const binaryTokens = ["+", "-", "*", "x", "/", "^", "**", "pow"]
+const unaryTokens = ["sqr", "abs", "neg", "sqrt"]
 const stackTokens = ["p", "peek", "q", "quit", "s", "show", "stack", "c", "clear"]
 
 proc `$`(n: float): string =
@@ -57,7 +60,6 @@ proc show(stack: Stack) =
   ## Display the whole stack.
   echo join(stack, " ")
 
-
 proc eval(op: BinaryOperator; x, y: float): float =
   ## Evaluation of binary operations.
   case op:
@@ -78,6 +80,12 @@ proc eval(op: UnaryOperator, x: float): float =
   case op:
     of squared:
       pow(x, x)
+    of negative:
+      -x
+    of absolute:
+      abs(x)
+    of squareRoot:
+      sqrt(x)
     else:
       x
 proc eval(stack: Stack, op: StackOperator): Stack =
@@ -125,32 +133,36 @@ proc ingest(stack: Stack, t: string): Stack =
   ## Given a token, convert the token into a float or operator and then process
   ## it as appropriate.
   result = stack
-  if t.isDigit: 
+  try:
     result.add(parseFloat t)
-  elif t in binaryTokens:
-    let o = case t
-      of "+": plus
-      of "-": minus
-      of "*": times
-      of "/": into
-      of "**", "^", "pow": power
-      else: left
-    result = result.operate(o)
-  elif t in unaryTokens:
-    let o = case t
-      of "sqr": squared
-      else: positive
-    result = result.operate(o)
-  elif t in stackTokens:
-    let o = case t
-      of "p", "peek": showLast
-      of "q", "quit": exit
-      of "s", "show", "stack": showStack
-      of "c", "clear": clear
-      else: noop
-    result = result.operate(o)
-  else:
-    raise newException(ValueError, "Unknown token: " & t)
+  except ValueError:
+    if t in binaryTokens:
+      let o = case t
+        of "+": plus
+        of "-": minus
+        of "*", "x": times
+        of "/": into
+        of "**", "^", "pow": power
+        else: left
+      result = result.operate(o)
+    elif t in unaryTokens:
+      let o = case t
+        of "sqr": squared
+        of "neg": negative
+        of "abs": absolute
+        of "sqrt": squareRoot
+        else: positive
+      result = result.operate(o)
+    elif t in stackTokens:
+      let o = case t
+        of "p", "peek": showLast
+        of "q", "quit": exit
+        of "s", "show", "stack": showStack
+        of "c", "clear": clear
+        else: noop
+      result = result.operate(o)
+    else:
+      raise newException(ValueError, "Unknown token: " & t)
 
 
 proc ingestLine(stack: Stack, tokens: seq[string]): Stack = 
@@ -164,31 +176,31 @@ proc ingestLine(stack: Stack, input: string): Stack =
   let tokens = input.split()
   result = stack.ingestLine(tokens)
 
-let args = docopt(doc, version="AD 1")
-
 when defined(testing):
   include tests
+  quit()
+
+let args = docopt(doc, version="AD 1")
+var stack: Stack = @[]
+if args["<exp>"]:
+  try:
+    stack = stack.ingestLine(@(args["<exp>"]))
+  except IndexError:
+    quit("Imbalanced input.")
+  except ValueError:
+    echo getCurrentExceptionMsg()
 else:
-  var stack: Stack = @[]
-  if args["<exp>"]:
+  while true:
+    stdout.write "> "
+    let input = readLine stdin
     try:
-      stack = stack.ingestLine(@(args["<exp>"]))
+      stack = stack.ingestLine(input)
     except IndexError:
-      quit("Imbalanced input.")
+      echo "Not enough stack."
     except ValueError:
       echo getCurrentExceptionMsg()
-  else:
-    while true:
-      stdout.write "> "
-      let input = readLine stdin
-      try:
-        stack = stack.ingestLine(input)
-      except IndexError:
-        echo "Not enough stack."
-      except ValueError:
-        echo getCurrentExceptionMsg()
 
-  if len(stack) > 0:
-    stack.peek()
-  if len(stack) > 1:
-    echo "Elements remaining: " & $stack[..(stack.high-1)]
+if len(stack) > 0:
+  stack.peek()
+if len(stack) > 1:
+  echo "Elements remaining: " & $stack[..(stack.high-1)]
