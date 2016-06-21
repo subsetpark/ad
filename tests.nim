@@ -27,3 +27,7 @@ suite "ad unit tests":
 
     check len(stack) == 0
 
+  test "isFloat":
+    check (not "ok".isFloat)
+    check "3.5".isFloat
+    check (not "4.5.4".isFloat)
