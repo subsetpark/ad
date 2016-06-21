@@ -1,5 +1,6 @@
 import docopt, strutils, math, future, sequtils
 
+
 type 
   BinaryOperator = enum
     plus
@@ -25,6 +26,11 @@ Simple Reverse Polish Calculator.
 Usage:
   ad <exp>...
   ad
+
+If passed any arguments, ad will interpret
+them as a series of commands. Otherwise it 
+will enter interactive mode, where you can 
+use it as a shell for running calculations.
 """
 
 const binaryTokens = ["+", "-", "*", "/", "^", "**", "pow"]
@@ -94,6 +100,8 @@ proc eval(stack: Stack, op: StackOperator): Stack =
 proc operate(stack: Stack, op: BinaryOperator): Stack =
   ## Processing a binary operator: pop the last two items on the stack and push
   ## the result.
+  if stack.len() < 2:
+    raise newException(IndexError, "Not enough stack.")
   result = stack
   let 
     y = result.pop()
@@ -103,6 +111,8 @@ proc operate(stack: Stack, op: BinaryOperator): Stack =
 proc operate(stack: Stack, op: UnaryOperator): Stack =
   ## Processing a unary operator: pop the last item on the stack and push the
   ## result.
+  if stack.len() < 1:
+    raise newException(IndexError, "Not enough stack.")
   result = stack
   let x = result.pop()
   result.add(eval(op, x))
@@ -139,36 +149,48 @@ proc ingest(stack: Stack, t: string): Stack =
       of "c", "clear": clear
       else: noop
     result = result.operate(o)
+  else:
+    raise newException(ValueError, "Unknown token: " & t)
 
-proc ingestLine(stack: var Stack, tokens: seq[string]) = 
+
+proc ingestLine(stack: Stack, tokens: seq[string]): Stack = 
   ## Process an entire line of tokens.
+  result = stack
   for t in tokens:
-    stack = stack.ingest(t)
+    result = result.ingest(t)
 
-proc ingestLine(stack: var Stack, input: string) =
+proc ingestLine(stack: Stack, input: string): Stack =
   ## Tokenize a line of input and then process it.
   let tokens = input.split()
-  stack.ingestLine(tokens)
+  result = stack.ingestLine(tokens)
 
 let args = docopt(doc, version="AD 1")
 
-var stack: Stack = @[]
 
-if args["<exp>"]:
-  try:
-    stack.ingestLine(@(args["<exp>"]))
-  except IndexError:
-    quit("Imbalanced input.")
+
+when defined(testing):
+  include tests
 else:
-  while true:
-    stdout.write "> "
-    let input = readLine stdin
+  var stack: Stack = @[]
+  if args["<exp>"]:
     try:
-      stack.ingestLine(input)
+      stack = stack.ingestLine(@(args["<exp>"]))
     except IndexError:
-      echo "Not enough stack."
+      quit("Imbalanced input.")
+    except ValueError:
+      echo getCurrentExceptionMsg()
+  else:
+    while true:
+      stdout.write "> "
+      let input = readLine stdin
+      try:
+        stack = stack.ingestLine(input)
+      except IndexError:
+        echo "Not enough stack."
+      except ValueError:
+        echo getCurrentExceptionMsg()
 
-if len(stack) > 0:
-  stack.peek()
-if len(stack) > 1:
-  echo "Elements remaining: " & $stack[..(stack.high-1)]
+  if len(stack) > 0:
+    stack.peek()
+  if len(stack) > 1:
+    echo "Elements remaining: " & $stack[..(stack.high-1)]
