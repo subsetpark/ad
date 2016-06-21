@@ -166,8 +166,6 @@ proc ingestLine(stack: Stack, input: string): Stack =
 
 let args = docopt(doc, version="AD 1")
 
-
-
 when defined(testing):
   include tests
 else:
