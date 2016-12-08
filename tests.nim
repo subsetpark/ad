@@ -20,14 +20,9 @@ suite "ad unit tests":
     expect IndexError:
       stack = stack.ingestLine("1 +")
 
-    check len(stack) == 0
+    check stack.len == 0
 
     expect ValueError:
       stack = stack.ingestLine("badToken")
 
-    check len(stack) == 0
-
-  test "isFloat":
-    check (not "ok".isFloat)
-    check "3.5".isFloat
-    check (not "4.5.4".isFloat)
+    check stack.len == 0

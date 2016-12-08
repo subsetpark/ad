@@ -11,27 +11,6 @@ proc `$`(n: float): string =
   else:
     system.`$` n
 
-proc isFloat*(s: string): bool {.noSideEffect, procvar.}=
-  ## Checks whether or not `s` is a numeric value.
-  ##
-  ## This checks 0-9 ASCII characters only.
-  ## Returns true if all characters in `s` are
-  ## numeric and there is at least one character
-  ## in `s`.
-  if s.len == 0:
-    return false
-
-  result = true
-
-  var seenDecimal = false
-  for c in s:
-    if c == '.':
-      if seenDecimal:
-        return false
-      seenDecimal = true
-    elif not c.isDigit():
-      return false
-
 proc peek*(stack: Stack) = 
   ## Display the top element of the stack.
   if len(stack) > 0:
@@ -129,8 +108,10 @@ proc ingest(stack: Stack, t: string): Stack =
   ## Given a token, convert the token into a float or operator and then process
   ## it as appropriate.
   result = stack
-  if t.isFloat:
-    result.add(parseFloat t)
+  let f = try: parseFloat t
+  except: -Inf
+  if f != -Inf:
+    result.add(f)
   elif t in binaryTokens:
     let o = binaryTokens[t]
     result = result.operate(o)
