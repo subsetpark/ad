@@ -1,4 +1,4 @@
-import docopt, strutils, future, sequtils, stack, op, math
+import docopt, strutils, future, sequtils, stack, op, math, rdstdin
 
 when defined(testing):
   include tests
@@ -34,8 +34,7 @@ when isMainModule:
 
   else:
     while true:
-      stdout.write "> "
-      let input = readLine stdin
+      let input = readLineFromStdin "> "
       try:
         mainStack = mainStack.ingestLine(input)
       except IndexError:
