@@ -4,6 +4,7 @@ author        = "Z. D. Smith"
 description   = "A simple RPN calculator"
 license       = "MIT"
 bin           = @["ad"]
+skipDirs      = @["tests"]
 
 # Deps
 requires "nim >= 0.14.2"
