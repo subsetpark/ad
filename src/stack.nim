@@ -2,8 +2,9 @@ import strutils, op, tables, math
 
 type
   Stack* = seq[float]
+  Num = float
 
-proc `$`(n: float): string =
+proc `$`(n: Num): string =
   ## Overridden toString operator. Numbers are stored as floats, but will be
   ## displayed as integers if possible.
   if fmod(n, 1.0) == 0:
@@ -11,7 +12,7 @@ proc `$`(n: float): string =
   else:
     system.`$` n
 
-proc peek*(stack: Stack) = 
+proc peek*(stack: Stack) =
   ## Display the top element of the stack.
   if len(stack) > 0:
     let r = stack[stack.high]
@@ -25,22 +26,19 @@ proc show(stack: Stack) =
 
 proc eval(stack: Stack, op: StackOperator): Stack =
   ## Evaluation of stack operations.
+  result = stack
   case op:
     of showLast:
       stack.peek()
-      result = stack
     of showStack:
       stack.show()
-      result = stack
     of clear:
-      result = newSeq[float]()
+      result = newSeq[Num]()
     of exit:
       stack.peek()
       quit()
-    else:
-      result = stack
 
-proc eval(op: BinaryOperator; x, y: float): float =
+proc eval(op: BinaryOperator; x, y: Num): Num =
   ## Evaluation of binary operations.
   case op:
     of plus:
@@ -50,13 +48,13 @@ proc eval(op: BinaryOperator; x, y: float): float =
     of times:
       x * y
     of into:
-      x / y 
+      x / y
     of power:
       pow(x, y)
-    else:
-      x
 
-proc eval(op: UnaryOperator, x: float): float =
+proc fac(x: float): float = float(fac(int(x)))
+
+proc eval(op: UnaryOperator, x: Num): Num =
   ## Evaluation of unary operations.
   case op:
     of squared:
@@ -70,15 +68,13 @@ proc eval(op: UnaryOperator, x: float): float =
     of factorial:
       if fmod(x, 1.0) != 0:
         raise newException(ValueError, "Can only take ! of whole numbers.")
-      float(fac(int(x)))
+      fac(x)
     of floor:
       floor(x)
     of ceiling:
       ceil(x)
     of round:
       round(x)
-    else:
-      x
 
 proc operate(stack: Stack, op: BinaryOperator): Stack =
   ## Processing a binary operator: pop the last two items on the stack and push
@@ -108,23 +104,23 @@ proc ingest(stack: Stack, t: string): Stack =
   ## Given a token, convert the token into a float or operator and then process
   ## it as appropriate.
   result = stack
-  let f = try: parseFloat t
-  except: -Inf
-  if f != -Inf:
+  try:
+    let f = parseFloat t
     result.add(f)
-  elif t in binaryTokens:
-    let o = binaryTokens[t]
-    result = result.operate(o)
-  elif t in unaryTokens:
-    let o = unaryTokens[t]
-    result = result.operate(o)
-  elif t in stackTokens:
-    let o = stackTokens[t]
-    result = result.operate(o)
-  else:
-    raise newException(ValueError, "Unknown token: " & t)
+  except ValueError:
+    if t in binaryTokens:
+      let o = binaryTokens[t]
+      result = result.operate(o)
+    elif t in unaryTokens:
+      let o = unaryTokens[t]
+      result = result.operate(o)
+    elif t in stackTokens:
+      let o = stackTokens[t]
+      result = result.operate(o)
+    else:
+      raise newException(ValueError, "Unknown token: " & t)
 
-proc ingestLine*(stack: Stack, tokens: seq[string]): Stack = 
+proc ingestLine*(stack: Stack, tokens: seq[string]): Stack =
   ## Process an entire line of tokens.
   result = stack
   for t in tokens:

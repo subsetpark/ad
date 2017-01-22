@@ -1,4 +1,4 @@
-import unittest, random, stack
+import unittest, random, "../src/stack"
 
 suite "ad unit tests":
   setup:

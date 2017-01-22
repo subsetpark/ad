@@ -21,6 +21,8 @@ type
     showStack
     clear
     exit
+  NullOperator* = enum
+    null
 
 const binaryTokens* = [("+", plus), 
                       ("-", minus), 
