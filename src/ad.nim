@@ -1,44 +1,116 @@
-import docopt, strutils, future, sequtils, stack, op, math, rdstdin
+import docopt, strutils, future, sequtils, math, rdstdin, options
+import stack, op, help
 
-when defined(testing):
-  include tests
-  quit()
-# === Main operation ===
-when isMainModule:
-  const doc = """
-  Simple Reverse Polish Calculator.
+type UiMode = enum
+  umNormal, umControl
 
-  Usage:
-    ad [<exp>...]
+const
+  CONTROL = ';'
+  doc = """
+Simple Reverse Polish Calculator.
 
-  If passed any arguments, ad will interpret
-  them as a series of commands. Otherwise it 
-  will enter interactive mode, where you can 
-  use it as a shell for running calculations.
-  """
+Usage:
+  ad [<exp>...]
 
-  let args = docopt(doc, version="AD 1")
-  var mainStack: Stack = @[]
-  if args["<exp>"]:
-    try:
-      mainStack = mainStack.ingestLine(@(args["<exp>"]))
-    except IndexError:
-      quit("Imbalanced input.")
-    except ValueError:
-      echo getCurrentExceptionMsg()
+If passed any arguments, ad will interpret
+them as a series of commands. Otherwise it
+will enter interactive mode, where you can
+use it as a shell for running calculations.
+"""
 
-    if mainStack.len > 0:
-      mainStack.peek()
-    if mainStack.len > 1:
-      echo "Stack remaining: [" & join(mainStack[..(mainStack.high-1)], " ") & "]"
+let args = docopt(doc, version="AD 1")
 
-  else:
-    while true:
-      let input = readLineFromStdin "> "
-      try:
-        mainStack = mainStack.ingestLine(input)
-      except IndexError:
-        echo "Not enough stack."
-      except ValueError:
-        echo getCurrentExceptionMsg()
+var
+  uiMode = umNormal
+  displayedControlModeMsg = false
+  mainStack: Stack = @[]
 
+proc prompt(): string =
+  case uiMode:
+    of umNormal:
+      result = "> "
+    of umControl:
+      if not displayedControlModeMsg:
+        echo "Enter 'ok' to return to normal mode."
+        displayedControlModeMsg = true
+      result = "[control] >"
+
+proc handleCommand(stack: Stack, args: seq[string]) =
+  case args[0]
+  of "?":
+    let token = args[1]
+    var explainStr: string
+
+    block getOperator:
+      let binaryOperator = token.getBinaryOperator()
+      if binaryOperator.isSome:
+        explainStr = binaryOperator.get().explain(stack)
+        break getOperator
+
+      let unaryOperator = token.getUnaryOperator()
+      if unaryOperator.isSome:
+        explainStr = unaryOperator.get().explain(stack)
+        break getOperator
+
+      let stackOperator = token.getStackOperator()
+      if stackOperator.isSome:
+        explainStr = stackOperator.get().explain(stack)
+        break getOperator
+
+    if not explainStr.isNil:
+      echo "explain: ", explainStr
+    else:
+      echo "Unknown help input: ", token
+
+  of "ok":
+    uiMode = umNormal
+
+proc handleNormalInput(input: string) =
+  try:
+    mainStack.ingestLine(input)
+  except IndexError:
+    echo "Not enough stack."
+  except ValueError:
+    echo getCurrentExceptionMsg()
+
+proc enterControlMode(input: string) =
+  if input.len > 1:
+    let
+      line = input[1..input.high].strip()
+      tokens = line.split()
+    mainStack.handleCommand(tokens)
+  elif uiMode != umControl:
+    uiMode = umControl
+    displayedControlModeMsg = false
+
+proc handleControlInput(input: string) =
+  let tokens = input.split()
+
+  mainStack.handleCommand(tokens)
+
+if args["<exp>"]:
+  try:
+    mainStack.ingestLine(@(args["<exp>"]))
+  except IndexError:
+    quit("Imbalanced input.")
+  except ValueError:
+    echo getCurrentExceptionMsg()
+
+  if mainStack.len > 0:
+    mainStack.peek()
+  if mainStack.len > 1:
+    echo "Stack remaining:"
+    mainStack[..(mainStack.high-1)].show()
+
+else:
+  while true:
+    let input = readLineFromStdin(prompt()).strip()
+    if input.len > 0:
+      case uiMode:
+        of umNormal:
+          if input[0] == CONTROL:
+            enterControlMode(input)
+          else:
+            handleNormalInput(input)
+        of umControl:
+          handleControlInput(input)

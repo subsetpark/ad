@@ -1,28 +1,45 @@
-import unittest, random, "../src/stack"
+import unittest, random
+import "../src/stack", "../src/op", "../src/help"
 
 suite "ad unit tests":
   setup:
     var stack: Stack = @[]
 
   test "add":
-    check stack.ingestLine("1 1 +") == @[2.0]
+    stack.ingestLine("1 1 +")
+    check stack == @[2.0]
   test "pow":
-    check stack.ingestLine("2 sqr") == @[4.0]
+    stack.ingestLine("2 sqr")
+    check stack == @[4.0]
   test "div":
-    check stack.ingestLine("6 4 /") == @[1.5]
+    stack.ingestLine("6 4 /")
+    check stack == @[1.5]
   test "clear":
-    check stack.ingestLine("1.0 c") == newSeq[float]()
+    stack.ingestLine("1.0 c")
+    check stack.len == 0
 
   test "accept floats":
-    check stack.ingestLine("1.0 7.5") == @[1.0, 7.5]
+    stack.ingestLine("1.0 7.5")
+    check stack == @[1.0, 7.5]
 
   test "error handling":
     expect IndexError:
-      stack = stack.ingestLine("1 +")
+      stack.ingestLine("1 +")
 
     check stack.len == 0
 
     expect ValueError:
-      stack = stack.ingestLine("badToken")
+      stack.ingestLine("badToken")
 
     check stack.len == 0
+
+suite "stack display":
+
+  test "float formatting":
+    check "3 + 4.5" == boPlus.explain(3.0, 4.5)
+
+  test "explain stack":
+    check "[1 (3 + 4.5)]" == boPlus.explain(@[1.0, 3.0, 4.5])
+    check "[(3 + 4.5)]" == boPlus.explain(@[3.0, 4.5])
+    check "[1 3 (-4.5)]" == uoNegative.explain(@[1.0, 3.0, 4.5])
+    check "dup 4.5" == soDup.explain(@[1.0, 3.0, 4.5])
