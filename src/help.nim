@@ -1,35 +1,55 @@
-import op, stack
+import op, stack, strutils, sequtils
 
-proc explainStr*(o: StackOperator | BinaryOperator, stack: Stack): string =
-  var
-    y = stack[^1]
-    x = stack[^2]
-
-  o.explain(x, y)
+proc `$`(o: Operator): string =
+  let operation = case o.arity:
+    of unary: $o.uOperation
+    of binary: $o.bOperation
+    of nullary: $o.nOperation
+  $o.arity & " op " & operation
 
 proc remainderStr(stack: Stack): string =
   if stack.len > 0: join(stack) & " "
   else: ""
 
-proc explain*(o: BinaryOperator, stack: Stack): string =
+proc explain*(o: Operator, stack: Stack): string =
   var
-    remainder = stack[0..stack.high - 2]
+    x, y: Num
+    remainder: Stack
+    explainStr, remainderStr: string
 
-    explainStr = o.explainStr(stack)
-    remainderStr = remainder.remainderStr
-
-  "[" & remainderStr & "(" & explainStr & ")]"
-
-proc explain*(o: UnaryOperator, stack: Stack): string =
-  let
-    x = stack[^1]
+  case o.arity
+  of unary:
+    y = stack[^1]
     remainder = stack[0..stack.high - 1]
-
-    explainStr = o.explain(x)
     remainderStr = remainder.remainderStr
+    explainStr = "(" & o.explain(y) & ")"
+  of binary:
+    y = stack[^1]
+    x = stack[^2]
+    remainder = stack[0..stack.high - 2]
+    remainderStr = remainder.remainderStr
+    explainStr = "(" & o.explain(x, y) & ")"
+  of nullary:
+    remainder = stack
+    remainderStr = ""
 
-  "[" & remainderStr & "(" & explainStr & ")]"
+    if o.minimumStackLength == 0:
+      explainStr = o.stackOperatorExplain()
+    elif o.minimumStackLength == 1:
+      y = stack[^1]
+      explainStr = o.stackOperatorExplain(y)
+    else:
+      y = stack[^1]
+      x = stack[^2]
+      explainStr = o.stackOperatorExplain(y, x)
+  let
+    name = $o & ":"
+    explanation = (
+      "[" & remainderStr & explainStr & "]"
+    ).align(50 - name.len)
 
-proc explain*(o: StackOperator, stack: Stack): string =
-  o.explainStr(stack)
+  name & explanation
 
+proc explain*(stack: Stack): string =
+  let eligibleOperators = getOperatorsForStackLength(stack.len)
+  eligibleOperators.mapIt(it.explain(stack)).join("\n")

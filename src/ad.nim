@@ -33,37 +33,30 @@ proc prompt(): string =
       if not displayedControlModeMsg:
         echo "Enter 'ok' to return to normal mode."
         displayedControlModeMsg = true
-      result = "[control] >"
+      result = "[control] > "
 
 proc handleCommand(stack: Stack, args: seq[string]) =
   case args[0]
   of "?":
-    let token = args[1]
-    var explainStr: string
-
-    block getOperator:
-      let binaryOperator = token.getBinaryOperator()
-      if binaryOperator.isSome:
-        explainStr = binaryOperator.get().explain(stack)
-        break getOperator
-
-      let unaryOperator = token.getUnaryOperator()
-      if unaryOperator.isSome:
-        explainStr = unaryOperator.get().explain(stack)
-        break getOperator
-
-      let stackOperator = token.getStackOperator()
-      if stackOperator.isSome:
-        explainStr = stackOperator.get().explain(stack)
-        break getOperator
-
-    if not explainStr.isNil:
-      echo "explain: ", explainStr
+    if args.len == 1:
+      echo stack.explain()
     else:
-      echo "Unknown help input: ", token
+      let token = args[1]
+
+      let maybeOperator = getOperator(token)
+      if maybeOperator.isSome:
+        try:
+          let explainStr = maybeOperator.get().explain(stack)
+          echo explainStr
+        except IndexError:
+          echo "Invalid context for command: ", token
+      else:
+        echo "Unknown help input: ", token
 
   of "ok":
     uiMode = umNormal
+
+  else: discard
 
 proc handleNormalInput(input: string) =
   try:
