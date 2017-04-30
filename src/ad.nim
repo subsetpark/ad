@@ -18,14 +18,20 @@ will enter interactive mode, where you can
 use it as a shell for running calculations.
 """
 
-let args = docopt(doc, version="AD 1")
-
 var
   uiMode = umNormal
   displayedControlModeMsg = false
   mainStack: Stack = @[]
 
+proc setControlMode() =
+  uiMode = umControl
+  displayedControlModeMsg = false
+
+proc setNormalMode() =
+  uiMode = umNormal
+
 proc prompt(): string =
+  ## Display the command prompt based on UI Mode.
   case uiMode:
     of umNormal:
       result = "> "
@@ -35,30 +41,37 @@ proc prompt(): string =
         displayedControlModeMsg = true
       result = "[control] > "
 
-proc handleCommand(stack: Stack, args: seq[string]) =
-  case args[0]
-  of "?":
-    if args.len == 1:
-      echo stack.explain()
+proc handleControlInput(line: seq[string]) =
+  ## Handle line of command input in control mode.
+  case line[0]
+  of "?", "explain":
+    if line.len == 1:
+      echo mainStack.explain()
     else:
-      let token = args[1]
+      let
+        token = line[1]
+        maybeOperator = getOperator(token)
 
-      let maybeOperator = getOperator(token)
       if maybeOperator.isSome:
         try:
-          let explainStr = maybeOperator.get().explain(stack)
+          let explainStr = maybeOperator.get().explain(mainStack)
           echo explainStr
         except IndexError:
           echo "Invalid context for command: ", token
       else:
         echo "Unknown help input: ", token
 
-  of "ok":
-    uiMode = umNormal
+  of "hist", "history":
+    showHistory()
 
-  else: discard
+  of "ok":
+    setNormalMode()
+
+  else:
+    echo "?"
 
 proc handleNormalInput(input: string) =
+  ## Handle a line of input in normal mode.
   try:
     mainStack.ingestLine(input)
   except IndexError:
@@ -66,44 +79,51 @@ proc handleNormalInput(input: string) =
   except ValueError:
     echo getCurrentExceptionMsg()
 
-proc enterControlMode(input: string) =
-  if input.len > 1:
-    let
-      line = input[1..input.high].strip()
-      tokens = line.split()
-    mainStack.handleCommand(tokens)
-  elif uiMode != umControl:
-    uiMode = umControl
-    displayedControlModeMsg = false
+proc handleInput(mode: UiMode, input: string) =
+  ## Dispatch on mode to the appropriate handling proc.
+  case mode
+  of umControl:
+    let tokens = input.split()
+    handleControlInput(tokens)
+  of umNormal:
+    case input[0]
+    of CONTROL:
+      if input.len > 1:
+        let
+          line = input[1..input.high].strip()
+          tokens = line.split()
+        handleControlInput(tokens)
+      else:
+        setControlMode()
+    else:
+      handleNormalInput(input)
 
-proc handleControlInput(input: string) =
-  let tokens = input.split()
+when isMainModule:
+  # Read input from command line or interactive mode.
+  let args = docopt(doc, version="AD 1")
 
-  mainStack.handleCommand(tokens)
+  if args["<exp>"]:
+    try:
+      mainStack.ingestLine(@(args["<exp>"]))
+    except IndexError:
+      quit("Imbalanced input.")
+    except ValueError:
+      echo getCurrentExceptionMsg()
 
-if args["<exp>"]:
-  try:
-    mainStack.ingestLine(@(args["<exp>"]))
-  except IndexError:
-    quit("Imbalanced input.")
-  except ValueError:
-    echo getCurrentExceptionMsg()
+    if mainStack.len > 0:
+      mainStack.peek()
+    if mainStack.len > 1:
+      echo "Stack remaining:"
+      mainStack[..(mainStack.high-1)].show()
 
-  if mainStack.len > 0:
-    mainStack.peek()
-  if mainStack.len > 1:
-    echo "Stack remaining:"
-    mainStack[..(mainStack.high-1)].show()
+  else:
+    var input: string
+    while true:
+      try:
+        input = readLineFromStdin(prompt())
+      except IOError:
+        break
 
-else:
-  while true:
-    let input = readLineFromStdin(prompt()).strip()
-    if input.len > 0:
-      case uiMode:
-        of umNormal:
-          if input[0] == CONTROL:
-            enterControlMode(input)
-          else:
-            handleNormalInput(input)
-        of umControl:
-          handleControlInput(input)
+      input = input.strip()
+      if input.len > 0:
+        uiMode.handleInput(input)

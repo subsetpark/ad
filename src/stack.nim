@@ -1,6 +1,8 @@
 import strutils, math, options
 import op
 
+const HISTORY_MAX_LENGTH = 250
+
 proc `$`(n: Num): string =
   ## Overridden toString operator. Due to an existing issue we need to
   ## repeat this overloading from op.nim.
@@ -9,11 +11,9 @@ proc `$`(n: Num): string =
   else:
     system.`$` n
 
-proc join*(stack: Stack): string =
-  strutils.join(stack, " ")
+proc join*(stack: Stack): string = strutils.join(stack, " ")
 
-proc `$`(stack: Stack): string =
-  "[" & join(stack) & "]"
+proc `$`(stack: Stack): string = "[" & join(stack) & "]"
 
 proc peek*(stack: Stack) =
   ## Display the top element of the stack.
@@ -27,8 +27,15 @@ proc show*(stack: Stack) =
   ## Display the whole stack.
   echo $stack
 
+proc showTail(stack: Stack, tailLength = 8) =
+  ## Display the last `tailLength` stack elements, in reverse order.
+  var i = stack.high
+  while i >= stack.low and (stack.high - i) < tailLength:
+    echo $(i + 1) & ": " & $stack[i]
+    i -= 1
+
 proc dropLast(stack: var Stack) =
-  discard stack.pop()
+  stack.setLen(stack.len - 1)
 
 proc mutate*(op: Operator, stack: var Stack) =
   ## Evaluation of stack operations.
@@ -75,23 +82,41 @@ proc operate(stack: var Stack, op: Operator): Num =
   else:
     raise newException(ValueError, "Nullary Operators have no return value.")
 
+var history: Stack = @[]
+
 proc ingest(stack: var Stack, t: string) =
-  ## Given a token, convert the token into a float or operator and then process
-  ## it as appropriate.
-  try:
-    let f = parseFloat t
-    stack.add(f)
-  except ValueError:
-    let maybeOperator = getOperator(t)
-    if maybeOperator.isSome:
-      let operator = maybeOperator.get()
-      if operator.arity == nullary:
-        operator.mutate(stack)
-      else:
-        let value = stack.operate(operator)
-        stack.add(value)
+  ## Given a token, convert the token into a float or operator and
+  ## then process it as appropriate.
+  block parseFloatBlock:
+    # Manual excepting float-alike tokens
+    if t == ".":
+      break parseFloatBlock
+
+    try:
+      let f = parseFloat t
+      stack.add(f)
+      return
+    except ValueError:
+      break parseFloatBlock
+
+  let maybeOperator = getOperator(t)
+
+  if maybeOperator.isNone:
+    raise newException(ValueError, "Unknown token: " & t)
+  else:
+    let operator = maybeOperator.get()
+
+    if operator.arity == nullary:
+      operator.mutate(stack)
+
     else:
-      raise newException(ValueError, "Unknown token: " & t)
+      let value = stack.operate(operator)
+      stack.add(value)
+      history.add(value)
+      if history.len > HISTORY_MAX_LENGTH:
+        history.delete(0)
+
+proc showHistory*() = history.showTail()
 
 proc ingestLine*(stack: var Stack, tokens: seq[string]) =
   ## Process an entire line of tokens.

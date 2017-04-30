@@ -135,7 +135,7 @@ proc getOperator*(t: string): Option[Operator] =
   of "d", dupSign: some DUP
   of "sw", swapSign: some SWAP
   of "dr", dropSign: some DROP
-  of popSign: some POP
+  of popSign, ".": some POP
   else: none(Operator)
 
 proc explain*(o: Operator, x: Num): string =
