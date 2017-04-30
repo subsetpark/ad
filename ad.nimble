@@ -1,5 +1,6 @@
+import src.base
 # Package
-version       = "0.2"
+version       = VERSION
 author        = "Z. D. Smith"
 description   = "A simple RPN calculator"
 license       = "MIT"

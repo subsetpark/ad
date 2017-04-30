@@ -1,5 +1,5 @@
 import docopt, strutils, future, sequtils, math, rdstdin, options
-import stack, op, help
+import stack, op, help, base
 
 type UiMode = enum
   umNormal, umControl
@@ -100,7 +100,7 @@ proc handleInput(mode: UiMode, input: string) =
 
 when isMainModule:
   # Read input from command line or interactive mode.
-  let args = docopt(doc, version="AD 1")
+  let args = docopt(doc, version=VERSION)
 
   if args["<exp>"]:
     try:
