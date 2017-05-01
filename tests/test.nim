@@ -1,6 +1,10 @@
 import unittest, random, strutils
 import "../src/stack", "../src/op", "../src/help"
 
+proc ingestLine(stack: var Stack, s: string) =
+  let tokens = s.split()
+  stack.ingestLine(tokens)
+
 suite "ad unit tests":
   setup:
     var stack: Stack = @[]
@@ -21,17 +25,6 @@ suite "ad unit tests":
   test "accept floats":
     stack.ingestLine("1.0 7.5")
     check stack == @[1.0, 7.5]
-
-  test "error handling":
-    expect IndexError:
-      stack.ingestLine("1 +")
-
-    check stack.len == 0
-
-    expect ValueError:
-      stack.ingestLine("badToken")
-
-    check stack.len == 0
 
 suite "stack display":
 
