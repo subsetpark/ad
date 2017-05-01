@@ -11,11 +11,13 @@ proc `$`(n: Num): string =
   else:
     system.`$` n
 
-proc join*(stack: Stack): string = strutils.join(stack, " ")
+proc join*(stack: Stack): string =
+  ## Concatenate the stack with spaces.
+  strutils.join(stack, " ")
 
 proc `$`(stack: Stack): string = "[" & join(stack) & "]"
 
-proc peek*(stack: Stack) =
+proc peek(stack: Stack) =
   ## Display the top element of the stack.
   if len(stack) > 0:
     let r = stack[stack.high]
@@ -23,9 +25,17 @@ proc peek*(stack: Stack) =
   else:
     echo ""
 
-proc show*(stack: Stack) =
+proc show(stack: Stack) =
   ## Display the whole stack.
   echo $stack
+
+proc handleExit*(stack: Stack) =
+  ## Display stack state on exit.
+  if stack.len > 0:
+    stack.peek()
+  if stack.len > 1:
+    echo "Stack remaining:"
+    stack[..(stack.high-1)].show()
 
 proc showTail(stack: Stack, tailLength = 8) =
   ## Display the last `tailLength` stack elements, in reverse order.
@@ -37,7 +47,7 @@ proc showTail(stack: Stack, tailLength = 8) =
 proc dropLast(stack: var Stack) =
   stack.setLen(stack.len - 1)
 
-proc mutate*(op: Operator, stack: var Stack) =
+proc mutate(op: Operator, stack: var Stack) =
   ## Evaluation of stack operations.
   case op.nOperation
   of showLast:
@@ -71,8 +81,8 @@ proc operate(stack: var Stack, op: Operator): Num =
     let x = stack.pop()
     result = eval(op, x)
   of binary:
-    ## Processing a binary operator: pop the last two items on the stack and push
-    ## the result.
+    ## Processing a binary operator: pop the last two items on the
+    ## stack and push the result.
     if stack.len < 2:
       raise newException(IndexError, "Not enough stack.")
     let
@@ -116,20 +126,11 @@ proc ingest(stack: var Stack, t: string) =
       if history.len > HISTORY_MAX_LENGTH:
         history.delete(0)
 
-proc showHistory*() = history.showTail()
+proc showHistory*() =
+  ## Display expression history.
+  history.showTail()
 
 proc ingestLine*(stack: var Stack, tokens: seq[string]) =
   ## Process an entire line of tokens.
   for t in tokens:
     stack.ingest(t)
-
-proc ingestLine*(stack: var Stack, input: string) =
-  ## Tokenize a line of input and then process it.
-  let
-    tokens = input.split()
-    oldStack = stack
-  try:
-    stack.ingestLine(tokens)
-  except IndexError, ValueError:
-    stack = oldStack
-    raise

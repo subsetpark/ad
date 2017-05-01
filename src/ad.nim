@@ -1,4 +1,4 @@
-import docopt, strutils, future, sequtils, math, rdstdin, options
+import docopt, strutils, rdstdin, options
 import stack, op, help, base
 
 type UiMode = enum
@@ -72,11 +72,16 @@ proc handleControlInput(line: seq[string]) =
 
 proc handleNormalInput(input: string) =
   ## Handle a line of input in normal mode.
+  let
+    tokens = input.split()
+    oldStack = mainStack
   try:
-    mainStack.ingestLine(input)
+    mainStack.ingestLine(tokens)
   except IndexError:
+    mainStack = oldStack
     echo "Not enough stack."
   except ValueError:
+    mainStack = oldStack
     echo getCurrentExceptionMsg()
 
 proc handleInput(mode: UiMode, input: string) =
@@ -101,6 +106,7 @@ proc handleInput(mode: UiMode, input: string) =
 when isMainModule:
   # Read input from command line or interactive mode.
   let args = docopt(doc, version=VERSION)
+  defer: mainStack.handleExit()
 
   if args["<exp>"]:
     try:
@@ -109,12 +115,6 @@ when isMainModule:
       quit("Imbalanced input.")
     except ValueError:
       echo getCurrentExceptionMsg()
-
-    if mainStack.len > 0:
-      mainStack.peek()
-    if mainStack.len > 1:
-      echo "Stack remaining:"
-      mainStack[..(mainStack.high-1)].show()
 
   else:
     var input: string
