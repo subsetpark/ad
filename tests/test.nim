@@ -34,37 +34,23 @@ proc toStack(nums: seq[float]): Stack =
 
 suite "stack display":
 
-  setup:
-    let
-      PLUS = Operator(arity: binary, bOperation: plus)
-      NEGATIVE = Operator(arity: unary, uOperation: negative)
-      DUP = Operator(
-        arity: nullary,
-        nOperation: dup,
-        minimumStackLength: 1
-      )
-      twoStack = @[3.0, 4.5].toStack
-      threeStack = @[1.0, 3.0, 4.5].toStack
-
-  test "float formatting":
-    check "3 + 4.5" == PLUS.explain("3", "4.5")
-
   test "explain stack":
-    check "binary op +:                         [1 (3 + 4.5)]" == PLUS.explain(threeStack)
-    check "binary op +:                           [(3 + 4.5)]" == PLUS.explain(twoStack)
-    check "unary op neg:                         [1 3 (-4.5)]" == NEGATIVE.explain(threeStack)
-    check "stack op dup:                      [duplicate 4.5]" == DUP.explain(threeStack)
+    let
+      eligibleExplain = @[1.0, 3.0, 4.5].toStack.explain()
+      allLines = eligibleExplain.splitLines
+
+      explainLines = [
+        "binary op +:                         [1 (3 + 4.5)]",
+        "unary op neg:                         [1 3 (-4.5)]",
+        "stack op dup:                      [duplicate 4.5]"
+      ]
+    for line in explainLines:
+      check line in allLines
 
 suite "eligible operators":
 
-  test "get eligible operators":
-    check 24 == getOperatorsForStackLength(3).len
-    check 24 == getOperatorsForStackLength(2).len
-    check 18 == getOperatorsForStackLength(1).len
-    check 5 == getOperatorsForStackLength(0).len
-
   test "display help for all eligible operators":
-    let
+    var
       eligibleExplain = @[1.0, 3.0, 4.5].toStack.explain()
       lines = eligibleExplain.splitLines
 
@@ -72,3 +58,18 @@ suite "eligible operators":
 
     for line in eligibleExplain.splitLines:
       check 50 == line.len
+
+    eligibleExplain = @[1.0, 4.5].toStack.explain()
+    lines = eligibleExplain.splitLines
+
+    check 24 == lines.len
+
+    eligibleExplain = @[4.5].toStack.explain()
+    lines = eligibleExplain.splitLines
+
+    check 18 == lines.len
+
+    eligibleExplain = @[].toStack.explain()
+    lines = eligibleExplain.splitLines
+
+    check 5 == lines.len

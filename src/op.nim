@@ -175,7 +175,7 @@ proc getOperator*(t: string): Option[Operator] =
   of historySign, "history": some HISTORY
   else: none(Operator)
 
-proc explain*(o: Operator, x: string): string =
+proc explain(o: Operator, x: string): string =
   # if o.arity != unary:
   #   raise newException(TypeError, "Wrong number of arguments passed to operator.")
   case o.uOperation:
@@ -189,7 +189,7 @@ proc explain*(o: Operator, x: string): string =
     of round: "round $1" % x
     of explainToken: "explain $1" % x
 
-proc explain*(o: Operator, x, y: string): string =
+proc explain(o: Operator, x, y: string): string =
   let
     infix = case o.bOperation:
     of plus: "+"
@@ -199,7 +199,7 @@ proc explain*(o: Operator, x, y: string): string =
     of power: "^"
   "$1 $2 $3" % [x, infix, y]
 
-proc stackOperatorExplain*(o: Operator, y = "NA", x = "NA"): string =
+proc stackOperatorExplain(o: Operator, y = "NA", x = "NA"): string =
   case o.nOperation:
     of showLast: "peek at stack"
     of exit: "quit"
@@ -216,7 +216,7 @@ proc remainderStr(stack: Stack): string =
   if stack.len > 0: join(stack) & " "
   else: ""
 
-proc explain*(o: Operator, stack: Stack): string =
+proc explain(o: Operator, stack: Stack): string =
   var
     x, y: string
     remainder: Stack
@@ -255,7 +255,7 @@ proc explain*(o: Operator, stack: Stack): string =
 
   name & explanation
 
-proc getOperatorsForStackLength*(length: int): seq[Operator] =
+proc getOperatorsForStackLength(length: int): seq[Operator] =
   if length >= 2:
     result = UNARY_OPERATORS & BINARY_OPERATORS & NULLARY_OPERATORS
   elif length == 1:
