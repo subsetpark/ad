@@ -3,16 +3,9 @@ import op
 
 const
   HISTORY_MAX_LENGTH = 250
-  QUOTE* = '\''
+  QUOTE* = ['\'', '`']
 
-type
-  StackObj* = object
-    case isEval*: bool
-    of true:
-      value*: Num
-    of false:
-      token: string
-  Stack* = seq[StackObj]
+var history: Stack = @[]
 
 proc `$`*(o: StackObj): string =
   ## Overridden toString operator. Due to an existing issue we need to
@@ -24,12 +17,6 @@ proc `$`*(o: StackObj): string =
       system.`$` o.value
   else:
     o.token
-
-proc join*(stack: Stack): string =
-  ## Concatenate the stack with spaces.
-  strutils.join(stack, " ")
-
-proc `$`(stack: Stack): string = "[" & join(stack) & "]"
 
 proc peek(stack: Stack) =
   ## Display the top element of the stack.
@@ -57,6 +44,10 @@ proc showTail(stack: Stack, tailLength = 8) =
   while i >= stack.low and (stack.high - i) < tailLength:
     echo $(i + 1) & ": " & $stack[i]
     i -= 1
+
+proc showHistory*() =
+  ## Display expression history.
+  history.showTail()
 
 proc dropLast(stack: var Stack) =
   stack.setLen(stack.len - 1)
@@ -86,8 +77,13 @@ proc mutate(op: Operator, stack: var Stack) =
   of popLast:
     stack.peek()
     stack.dropLast()
+  of explainAll:
+    echo stack.explain()
+  of noHistory:
+    showHistory()
 
-proc operate(stack: var Stack, op: Operator): StackObj =
+
+proc operate(stack: var Stack, op: Operator): Option[StackObj] =
   case op.arity
   of unary:
     if stack.len < 1:
@@ -95,10 +91,7 @@ proc operate(stack: var Stack, op: Operator): StackObj =
     let x = stack.pop()
 
     try:
-      result = StackObj(
-        isEval: true,
-        value: eval(op, x.value)
-      )
+      result = eval(op, x, stack)
     except FieldError:
       raise newException(ValueError, "Could not evaluate $1 with unevaluated word: $2" % [$op, $x])
 
@@ -112,17 +105,16 @@ proc operate(stack: var Stack, op: Operator): StackObj =
       x = stack.pop()
 
     try:
-      result = StackObj(
+      result = some(StackObj(
         isEval: true,
         value: eval(op, x.value, y.value)
-      )
+      ))
     except FieldError:
       raise newException(ValueError, "Could not evaluate $1 with unevaluated word(s): $2" % [$op, @[y, x].filterIt(not it.isEval).join(", ")])
 
   else:
     raise newException(ValueError, "Nullary Operators have no return value.")
 
-var history: Stack = @[]
 
 proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
   ## Evaluate a token in the context of a stack and return a new
@@ -151,16 +143,19 @@ proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
         result = none(StackObj)
 
       else:
-        result = some(stack.operate(operator))
-        history.add(result.get())
-        if history.len > HISTORY_MAX_LENGTH:
-          history.delete(0)
-
-    elif t[0] == QUOTE:
-      result = some(StackObj(token: t[1..t.high]))
+        result = stack.operate(operator)
+        if result.isSome:
+          history.add(result.get())
+          if history.len > HISTORY_MAX_LENGTH:
+            history.delete(0)
 
     else:
-      raise newException(ValueError, "Unrecognized token: $1" % t)
+      case t[0]
+      of QUOTE:
+        result = some(StackObj(token: t[1..t.high]))
+      else:
+        raise newException(ValueError, "Unrecognized token: $1" % t)
+
 
 proc ingest(stack: var Stack, t: string) =
   ## Given a token, convert the token into a float or operator and
@@ -168,10 +163,6 @@ proc ingest(stack: var Stack, t: string) =
   let newObj = EvaluateToken(stack, t)
   if newObj.isSome:
     stack.add(newObj.get())
-
-proc showHistory*() =
-  ## Display expression history.
-  history.showTail()
 
 proc ingestLine*(stack: var Stack, tokens: seq[string]) =
   ## Process an entire line of tokens.

@@ -1,5 +1,5 @@
 import unittest, random, strutils, sequtils
-import "../src/stack", "../src/op", "../src/help"
+import "../src/stack", "../src/op"
 
 proc ingestLine(stack: var Stack, s: string) =
   let tokens = s.split()
@@ -58,17 +58,17 @@ suite "stack display":
 suite "eligible operators":
 
   test "get eligible operators":
-    check 21 == getOperatorsForStackLength(3).len
-    check 21 == getOperatorsForStackLength(2).len
-    check 15 == getOperatorsForStackLength(1).len
-    check 3 == getOperatorsForStackLength(0).len
+    check 24 == getOperatorsForStackLength(3).len
+    check 24 == getOperatorsForStackLength(2).len
+    check 18 == getOperatorsForStackLength(1).len
+    check 5 == getOperatorsForStackLength(0).len
 
   test "display help for all eligible operators":
     let
       eligibleExplain = @[1.0, 3.0, 4.5].toStack.explain()
       lines = eligibleExplain.splitLines
 
-    check 21 == lines.len
+    check 24 == lines.len
 
     for line in eligibleExplain.splitLines:
       check 50 == line.len
