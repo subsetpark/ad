@@ -83,8 +83,6 @@ proc `$`(o: Operator): string =
   $o.arity & " op " & operation
 
 proc `$`*(o: StackObj): string =
-  ## Overridden toString operator. Due to an existing issue we need to
-  ## repeat this overloading from op.nim.
   if o.isEval:
     if fmod(o.value, 1.0) == 0:
       $int(o.value)
