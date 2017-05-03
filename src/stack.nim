@@ -7,17 +7,6 @@ const
 
 var history: Stack = @[]
 
-proc `$`*(o: StackObj): string =
-  ## Overridden toString operator. Due to an existing issue we need to
-  ## repeat this overloading from op.nim.
-  if o.isEval:
-    if fmod(o.value, 1.0) == 0:
-      $int(o.value)
-    else:
-      system.`$` o.value
-  else:
-    o.token
-
 proc peek(stack: Stack) =
   ## Display the top element of the stack.
   if len(stack) > 0:

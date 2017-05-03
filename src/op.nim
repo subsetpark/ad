@@ -97,7 +97,7 @@ proc join*(stack: Stack): string =
   ## Concatenate the stack with spaces.
   strutils.join(stack, " ")
 
-proc `$`(stack: Stack): string = "[" & join(stack) & "]"
+proc `$`*(stack: Stack): string = "[" & join(stack) & "]"
 
 proc initStackObj*(n: Num): StackObj =
   StackObj(isEval: true, value: n)
