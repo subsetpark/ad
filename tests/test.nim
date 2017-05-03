@@ -1,9 +1,12 @@
-import unittest, random, strutils
+import unittest, random, strutils, sequtils
 import "../src/stack", "../src/op", "../src/help"
 
 proc ingestLine(stack: var Stack, s: string) =
   let tokens = s.split()
   stack.ingestLine(tokens)
+
+proc values(stack: Stack): seq[float] =
+  stack.mapIt(it.value)
 
 suite "ad unit tests":
   setup:
@@ -11,20 +14,23 @@ suite "ad unit tests":
 
   test "add":
     stack.ingestLine("1 1 +")
-    check stack == @[2.0]
+    check stack.values == @[2.0]
   test "pow":
     stack.ingestLine("2 sqr")
-    check stack == @[4.0]
+    check stack.values == @[4.0]
   test "div":
     stack.ingestLine("6 4 /")
-    check stack == @[1.5]
+    check stack.values == @[1.5]
   test "clear":
     stack.ingestLine("1.0 c")
     check stack.len == 0
 
   test "accept floats":
     stack.ingestLine("1.0 7.5")
-    check stack == @[1.0, 7.5]
+    check stack.values == @[1.0, 7.5]
+
+proc toStack(nums: seq[float]): Stack =
+  nums.mapIt(StackObj(isEval: true, value: it))
 
 suite "stack display":
 
@@ -37,11 +43,11 @@ suite "stack display":
         nOperation: dup,
         minimumStackLength: 1
       )
-      twoStack = @[3.0, 4.5]
-      threeStack = @[1.0, 3.0, 4.5]
+      twoStack = @[3.0, 4.5].toStack
+      threeStack = @[1.0, 3.0, 4.5].toStack
 
   test "float formatting":
-    check "3 + 4.5" == PLUS.explain(3.0, 4.5)
+    check "3 + 4.5" == PLUS.explain("3", "4.5")
 
   test "explain stack":
     check "binary op +:                         [1 (3 + 4.5)]" == PLUS.explain(threeStack)
@@ -59,7 +65,7 @@ suite "eligible operators":
 
   test "display help for all eligible operators":
     let
-      eligibleExplain = @[1.0, 3.0, 4.5].explain()
+      eligibleExplain = @[1.0, 3.0, 4.5].toStack.explain()
       lines = eligibleExplain.splitLines
 
     check 21 == lines.len

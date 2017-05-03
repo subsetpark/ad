@@ -72,9 +72,8 @@ proc handleControlInput(line: seq[string]) =
 
 proc handleNormalInput(input: string) =
   ## Handle a line of input in normal mode.
-  let
-    tokens = input.split()
-    oldStack = mainStack
+  let tokens = input.split()
+  var oldStack = mainStack
   try:
     mainStack.ingestLine(tokens)
   except IndexError:

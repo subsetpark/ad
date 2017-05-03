@@ -1,15 +1,29 @@
-import strutils, math, options
+import strutils, math, options, sequtils
 import op
 
-const HISTORY_MAX_LENGTH = 250
+const
+  HISTORY_MAX_LENGTH = 250
+  QUOTE* = '\''
 
-proc `$`(n: Num): string =
+type
+  StackObj* = object
+    case isEval*: bool
+    of true:
+      value*: Num
+    of false:
+      token: string
+  Stack* = seq[StackObj]
+
+proc `$`*(o: StackObj): string =
   ## Overridden toString operator. Due to an existing issue we need to
   ## repeat this overloading from op.nim.
-  if fmod(n, 1.0) == 0:
-    $int(n)
+  if o.isEval:
+    if fmod(o.value, 1.0) == 0:
+      $int(o.value)
+    else:
+      system.`$` o.value
   else:
-    system.`$` n
+    o.token
 
 proc join*(stack: Stack): string =
   ## Concatenate the stack with spaces.
@@ -73,58 +87,87 @@ proc mutate(op: Operator, stack: var Stack) =
     stack.peek()
     stack.dropLast()
 
-proc operate(stack: var Stack, op: Operator): Num =
+proc operate(stack: var Stack, op: Operator): StackObj =
   case op.arity
   of unary:
     if stack.len < 1:
       raise newException(IndexError, "Not enough stack.")
     let x = stack.pop()
-    result = eval(op, x)
+
+    try:
+      result = StackObj(
+        isEval: true,
+        value: eval(op, x.value)
+      )
+    except FieldError:
+      raise newException(ValueError, "Could not evaluate $1 with unevaluated word: $2" % [$op, $x])
+
   of binary:
-    ## Processing a binary operator: pop the last two items on the
-    ## stack and push the result.
+    ## Processing a binary operator: pop the last two
+    ## items on the stack and push the result.
     if stack.len < 2:
       raise newException(IndexError, "Not enough stack.")
     let
       y = stack.pop()
       x = stack.pop()
-    result = eval(op, x, y)
+
+    try:
+      result = StackObj(
+        isEval: true,
+        value: eval(op, x.value, y.value)
+      )
+    except FieldError:
+      raise newException(ValueError, "Could not evaluate $1 with unevaluated word(s): $2" % [$op, @[y, x].filterIt(not it.isEval).join(", ")])
+
   else:
     raise newException(ValueError, "Nullary Operators have no return value.")
 
 var history: Stack = @[]
 
+proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
+  ## Evaluate a token in the context of a stack and return a new
+  ## StackObj, if appropriate.
+  var floatValue: Num = NaN
+  if t != ".":
+    try:
+      floatValue = parseFloat(t)
+    except ValueError:
+      discard
+
+  if floatValue.classify != fcNan:
+    result = some(StackObj(
+      isEval: true,
+      value: floatValue)
+    )
+
+  else:
+    let maybeOperator = getOperator(t)
+
+    if maybeOperator.isSome:
+      let operator = maybeOperator.get()
+
+      if operator.arity == nullary:
+        operator.mutate(stack)
+        result = none(StackObj)
+
+      else:
+        result = some(stack.operate(operator))
+        history.add(result.get())
+        if history.len > HISTORY_MAX_LENGTH:
+          history.delete(0)
+
+    elif t[0] == QUOTE:
+      result = some(StackObj(token: t[1..t.high]))
+
+    else:
+      raise newException(ValueError, "Unrecognized token: $1" % t)
+
 proc ingest(stack: var Stack, t: string) =
   ## Given a token, convert the token into a float or operator and
   ## then process it as appropriate.
-  block parseFloatBlock:
-    # Manual excepting float-alike tokens
-    if t == ".":
-      break parseFloatBlock
-
-    try:
-      let f = parseFloat t
-      stack.add(f)
-      return
-    except ValueError:
-      break parseFloatBlock
-
-  let maybeOperator = getOperator(t)
-
-  if maybeOperator.isNone:
-    raise newException(ValueError, "Unknown token: " & t)
-  else:
-    let operator = maybeOperator.get()
-
-    if operator.arity == nullary:
-      operator.mutate(stack)
-
-    else:
-      let value = stack.operate(operator)
-      stack.add(value)
-      history.add(value)
-      if history.len > HISTORY_MAX_LENGTH:
-        history.delete(0)
+  let newObj = EvaluateToken(stack, t)
+  if newObj.isSome:
+    stack.add(newObj.get())
 
 proc showHistory*() =
   ## Display expression history.

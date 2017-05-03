@@ -13,19 +13,19 @@ proc remainderStr(stack: Stack): string =
 
 proc explain*(o: Operator, stack: Stack): string =
   var
-    x, y: Num
+    x, y: string
     remainder: Stack
     explainStr, remainderStr: string
 
   case o.arity
   of unary:
-    y = stack[^1]
+    y = $stack[^1]
     remainder = stack[0..stack.high - 1]
     remainderStr = remainder.remainderStr
     explainStr = "(" & o.explain(y) & ")"
   of binary:
-    y = stack[^1]
-    x = stack[^2]
+    y = $stack[^1]
+    x = $stack[^2]
     remainder = stack[0..stack.high - 2]
     remainderStr = remainder.remainderStr
     explainStr = "(" & o.explain(x, y) & ")"
@@ -36,11 +36,11 @@ proc explain*(o: Operator, stack: Stack): string =
     if o.minimumStackLength == 0:
       explainStr = o.stackOperatorExplain()
     elif o.minimumStackLength == 1:
-      y = stack[^1]
+      y = $stack[^1]
       explainStr = o.stackOperatorExplain(y)
     else:
-      y = stack[^1]
-      x = stack[^2]
+      y = $stack[^1]
+      x = $stack[^2]
       explainStr = o.stackOperatorExplain(y, x)
   let
     name = $o & ":"

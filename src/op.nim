@@ -59,17 +59,14 @@ type
     swapLast = swapSign
     popLast = popSign
   Num* = float
-  Stack* = seq[float]
-
-proc `$`(n: Num): string =
-  ## Overridden toString operator. Numbers are stored as floats, but will be
-  ## displayed as integers if possible.
-  if fmod(n, 1.0) == 0:
-    $int(n)
-  else:
-    system.`$` n
 
 var UNARY_OPERATORS, BINARY_OPERATORS, NULLARY_OPERATORS = newSeq[Operator]()
+
+proc `$`*(op: Operator): string =
+  case op.arity:
+    of nullary: $op.nOperation
+    of unary: $op.uOperation
+    of binary: $op.bOperation
 
 proc unaryOperator(operation: UnaryOperation): Operator =
   result.arity = unary
@@ -138,10 +135,9 @@ proc getOperator*(t: string): Option[Operator] =
   of popSign, ".": some POP
   else: none(Operator)
 
-proc explain*(o: Operator, x: Num): string =
+proc explain*(o: Operator, x: string): string =
   # if o.arity != unary:
   #   raise newException(TypeError, "Wrong number of arguments passed to operator.")
-  let x = $x
   case o.uOperation:
     of squared: "$1 ^ 2" % x
     of negative: "-$1" % x
@@ -152,7 +148,7 @@ proc explain*(o: Operator, x: Num): string =
     of ceiling: "ceiling of $1" % x
     of round: "round $1" % x
 
-proc explain*(o: Operator, x, y: Num): string =
+proc explain*(o: Operator, x, y: string): string =
   let
     infix = case o.bOperation:
     of plus: "+"
@@ -160,18 +156,18 @@ proc explain*(o: Operator, x, y: Num): string =
     of times: "*"
     of into: "/"
     of power: "^"
-  "$1 $2 $3" % [$x, infix, $y]
+  "$1 $2 $3" % [x, infix, y]
 
-proc stackOperatorExplain*(o: Operator, y = 0.0, x = 0.0): string =
+proc stackOperatorExplain*(o: Operator, y = "NA", x = "NA"): string =
   case o.nOperation:
     of showLast: "peek at stack"
     of exit: "quit"
     of showStack: "show stack"
     of clear: "clear stack"
-    of dup: "duplicate $1" % $y
-    of swapLast: "swap $1 and $2" % [$x, $y]
-    of drop: "drop $1" % $y
-    of popLast: "print and drop $1" % $y
+    of dup: "duplicate $1" % y
+    of swapLast: "swap $1 and $2" % [x, y]
+    of drop: "drop $1" % y
+    of popLast: "print and drop $1" % y
 
 proc eval*(op: Operator; x, y: Num): Num =
   ## Evaluation of binary operations.
