@@ -154,10 +154,6 @@ proc join*(stack: Stack): string =
 
 proc `$`*(stack: Stack): string = "[" & join(stack) & "]"
 
-proc initStackObj*(n: Num): StackObj =
-  ## Create evaluated stack object around a number.
-  StackObj(isEval: true, value: n)
-
 proc getOperator*(t: string): Option[Operator] =
   ## Return an operator if it matches to a given token.
   case t
@@ -302,7 +298,7 @@ proc eval*(op: Operator; x, y: Num): Num =
     of power:
       result = pow(x, y)
 
-proc eval*(op: Operator, x: Num, stack: Stack): Num =
+proc eval*(op: Operator, x: Num): Num =
   ## Evaluation of unary operations.
   case op.uOperation:
     of squared:

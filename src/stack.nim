@@ -101,7 +101,7 @@ proc mutate(op: Operator, stack: var Stack) =
     for sign, value in locals:
       echo "$1: $2" % [sign, $value]
 
-proc operate(stack: var Stack, op: Operator): StackObj =
+proc operate(stack: var Stack, op: Operator): Num =
   case op.arity
   of unary:
     if stack.len < 1:
@@ -109,10 +109,7 @@ proc operate(stack: var Stack, op: Operator): StackObj =
     let x = stack.pop()
 
     try:
-      result = StackObj(
-        isEval: true,
-        value: eval(op, x.value, stack)
-      )
+      result = eval(op, x.value)
     except FieldError:
       raise newException(ValueError, "Could not evaluate $1 with unevaluated word: $2" % [$op, $x])
 
@@ -126,10 +123,7 @@ proc operate(stack: var Stack, op: Operator): StackObj =
       x = stack.pop()
 
     try:
-      result = StackObj(
-        isEval: true,
-        value: eval(op, x.value, y.value)
-      )
+      result = eval(op, x.value, y.value)
     except FieldError:
       raise newException(ValueError, "Could not evaluate $1 with unevaluated word(s): $2" % [$op, @[y, x].filterIt(not it.isEval).join(", ")])
 
@@ -170,7 +164,10 @@ proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
         result = none(StackObj)
 
       else:
-        result = some(stack.operate(operator))
+        result = some(StackObj(
+          isEval: true,
+          value: stack.operate(operator))
+        )
         history.add(result.get())
         if history.len > HISTORY_MAX_LENGTH:
           history.delete(0)
