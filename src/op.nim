@@ -81,31 +81,6 @@ type
 
 var UNARY_OPERATORS, BINARY_OPERATORS, NULLARY_OPERATORS = newSeq[Operator]()
 
-proc `$`*(o: Operator): string =
-  let operation = case o.arity:
-    of unary: $o.uOperation
-    of binary: $o.bOperation
-    of nullary: $o.nOperation
-  $o.arity & " op " & operation
-
-proc `$`*(o: StackObj): string =
-  if o.isEval:
-    if fmod(o.value, 1.0) == 0:
-      $int(o.value)
-    else:
-      system.`$` o.value
-  else:
-    o.token
-
-proc join*(stack: Stack): string =
-  ## Concatenate the stack with spaces.
-  strutils.join(stack, " ")
-
-proc `$`*(stack: Stack): string = "[" & join(stack) & "]"
-
-proc initStackObj*(n: Num): StackObj =
-  StackObj(isEval: true, value: n)
-
 proc unaryOperator(operation: UnaryOperation): Operator =
   result.arity = unary
   result.uOperation = operation
@@ -154,7 +129,37 @@ let
   DEL = nullaryOperator(noDel, minimumStackLength = 1)
   LOCALS = nullaryOperator(noLocals)
 
+proc `$`*(o: Operator): string =
+  ## Output type and name of operator.
+  let operation = case o.arity:
+    of unary: $o.uOperation
+    of binary: $o.bOperation
+    of nullary: $o.nOperation
+  $o.arity & " op " & operation
+
+proc `$`*(o: StackObj): string =
+  ## Display a stack object. Display whole numbers as integers, unevaluated
+  ## symbols as tokens.
+  if o.isEval:
+    if fmod(o.value, 1.0) == 0:
+      $int(o.value)
+    else:
+      system.`$` o.value
+  else:
+    o.token
+
+proc join*(stack: Stack): string =
+  ## Concatenate the stack with spaces.
+  strutils.join(stack, " ")
+
+proc `$`*(stack: Stack): string = "[" & join(stack) & "]"
+
+proc initStackObj*(n: Num): StackObj =
+  ## Create evaluated stack object around a number.
+  StackObj(isEval: true, value: n)
+
 proc getOperator*(t: string): Option[Operator] =
+  ## Return an operator if it matches to a given token.
   case t
   of plusSign: some PLUS
   of minusSign: some MINUS
@@ -186,8 +191,6 @@ proc getOperator*(t: string): Option[Operator] =
   else: none(Operator)
 
 proc explain(o: Operator, x: string): string =
-  # if o.arity != unary:
-  #   raise newException(TypeError, "Wrong number of arguments passed to operator.")
   case o.uOperation:
     of squared: "$1 ^ 2" % x
     of negative: "-$1" % x
@@ -230,6 +233,8 @@ proc remainderStr(stack: Stack): string =
   else: ""
 
 proc explain*(o: Operator, stack: Stack): string =
+  ## Given an operator, pull out the appropriate number of arguments and return
+  ## a string projecting the given operation.
   var
     x, y: string
     remainder: Stack
@@ -278,6 +283,8 @@ proc getOperatorsForStackLength(length: int): seq[Operator] =
     result = NULLARY_OPERATORS.filterIt(it.minimumStackLength == 0)
 
 proc explain*(stack: Stack): string =
+  ## Generate explanatory text for all operators eligible for the current
+  ## stack.
   let eligibleOperators = getOperatorsForStackLength(stack.len)
   eligibleOperators.mapIt(it.explain(stack)).join("\n")
 
@@ -295,24 +302,24 @@ proc eval*(op: Operator; x, y: Num): Num =
     of power:
       result = pow(x, y)
 
-proc eval*(op: Operator, x: StackObj, stack: Stack): StackObj =
+proc eval*(op: Operator, x: Num, stack: Stack): Num =
   ## Evaluation of unary operations.
   case op.uOperation:
     of squared:
-      result = initStackObj(x.value * x.value)
+      result = x * x
     of negative:
-      result = initStackObj( -x.value)
+      result =  -x
     of absolute:
-      result = initStackObj(abs(x.value))
+      result = abs(x)
     of squareRoot:
-      result = initStackObj(sqrt(x.value))
+      result = sqrt(x)
     of factorial:
-      if fmod(x.value, 1.0) != 0:
+      if fmod(x, 1.0) != 0:
         raise newException(ValueError, "Can only take ! of whole numbers.")
-      result = initStackObj(float(fac(int(x.value))))
+      result = float(fac(int(x)))
     of floor:
-      result = initStackObj(floor(x.value))
+      result = floor(x)
     of ceiling:
-      result = initStackObj(ceil(x.value))
+      result = ceil(x)
     of round:
-      result = initStackObj(round(x.value))
+      result = round(x)

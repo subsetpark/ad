@@ -109,7 +109,10 @@ proc operate(stack: var Stack, op: Operator): StackObj =
     let x = stack.pop()
 
     try:
-      result = eval(op, x, stack)
+      result = StackObj(
+        isEval: true,
+        value: eval(op, x.value, stack)
+      )
     except FieldError:
       raise newException(ValueError, "Could not evaluate $1 with unevaluated word: $2" % [$op, $x])
 
