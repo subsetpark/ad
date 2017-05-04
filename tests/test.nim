@@ -54,7 +54,7 @@ suite "eligible operators":
       eligibleExplain = @[1.0, 3.0, 4.5].toStack.explain()
       lines = eligibleExplain.splitLines
 
-    check 24 == lines.len
+    check 27 == lines.len
 
     for line in eligibleExplain.splitLines:
       check 50 == line.len
@@ -62,14 +62,14 @@ suite "eligible operators":
     eligibleExplain = @[1.0, 4.5].toStack.explain()
     lines = eligibleExplain.splitLines
 
-    check 24 == lines.len
+    check 27 == lines.len
 
     eligibleExplain = @[4.5].toStack.explain()
     lines = eligibleExplain.splitLines
 
-    check 18 == lines.len
+    check 20 == lines.len
 
     eligibleExplain = @[].toStack.explain()
     lines = eligibleExplain.splitLines
 
-    check 5 == lines.len
+    check 6 == lines.len

@@ -1,11 +1,13 @@
-import strutils, math, options, sequtils
+import strutils, math, options, sequtils, tables
 import op
 
 const
   HISTORY_MAX_LENGTH = 250
   QUOTE* = ['\'', '`']
 
-var history: Stack = @[]
+var
+  history: Stack = @[]
+  locals = initTable[string, Num]()
 
 proc peek(stack: Stack) =
   ## Display the top element of the stack.
@@ -48,7 +50,7 @@ proc mutate(op: Operator, stack: var Stack) =
     stack.peek()
   of showStack:
     stack.show()
-  of clear:
+  of noClear:
     stack.setLen(0)
   of exit:
     stack.peek()
@@ -70,9 +72,36 @@ proc mutate(op: Operator, stack: var Stack) =
     echo stack.explain()
   of noHistory:
     showHistory()
+  of explainToken:
+    let x = stack.pop()
+    if x.isEval:
+      raise newException(ValueError, "Can't explain value: $1" % $x.value)
+    else:
+      let opToExplain = getOperator(x.token)
+      if opToExplain.isSome:
+        echo opToExplain.get.explain(stack)
+      else:
+        echo "Don't know " & x.token
+  of noDef:
+    let
+      name = stack.pop()
+      value = stack.pop()
+    if name.isEval:
+      raise newException(ValueError, "Can't assign value to $1" % $name.value)
+    elif not value.isEval:
+      raise newException(ValueError, "Can't assign $1 to a variable" % value.token)
+    locals[name.token] = value.value
+  of noDel:
+    let name = stack.pop()
+    if name.token notin locals:
+      raise newException(ValueError, "$1 not currently a defined variable" % name.token)
+    else:
+      locals.del(name.token)
+  of noLocals:
+    for sign, value in locals:
+      echo "$1: $2" % [sign, $value]
 
-
-proc operate(stack: var Stack, op: Operator): Option[StackObj] =
+proc operate(stack: var Stack, op: Operator): StackObj =
   case op.arity
   of unary:
     if stack.len < 1:
@@ -94,10 +123,10 @@ proc operate(stack: var Stack, op: Operator): Option[StackObj] =
       x = stack.pop()
 
     try:
-      result = some(StackObj(
+      result = StackObj(
         isEval: true,
         value: eval(op, x.value, y.value)
-      ))
+      )
     except FieldError:
       raise newException(ValueError, "Could not evaluate $1 with unevaluated word(s): $2" % [$op, @[y, x].filterIt(not it.isEval).join(", ")])
 
@@ -121,6 +150,12 @@ proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
       value: floatValue)
     )
 
+  elif t in locals:
+    result = some(StackObj(
+      isEval: true,
+      value: locals[t]
+    ))
+
   else:
     let maybeOperator = getOperator(t)
 
@@ -132,11 +167,10 @@ proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
         result = none(StackObj)
 
       else:
-        result = stack.operate(operator)
-        if result.isSome:
-          history.add(result.get())
-          if history.len > HISTORY_MAX_LENGTH:
-            history.delete(0)
+        result = some(stack.operate(operator))
+        history.add(result.get())
+        if history.len > HISTORY_MAX_LENGTH:
+          history.delete(0)
 
     else:
       case t[0]

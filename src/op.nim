@@ -26,6 +26,9 @@ const
   explainSign = "?"
   explainAllSign = "??"
   historySign = "hist"
+  defSign = "def"
+  delSign = "del"
+  localsSign = "locals"
 
 type
   Arity* = enum
@@ -46,7 +49,6 @@ type
     floor = floorSign
     ceiling = ceilingSign
     round = roundSign
-    explainToken = explainSign
   BinaryOperation* = enum
     plus = plusSign
     minus = minusSign
@@ -56,7 +58,7 @@ type
   NullaryOperation* = enum
     showLast = showLastSign
     showStack = showStackSign
-    clear = clearSign
+    noClear = clearSign
     exit = exitSign
     dup = dupSign
     drop = dropSign
@@ -64,6 +66,10 @@ type
     popLast = popSign
     explainAll = explainAllSign
     noHistory = historySign
+    explainToken = explainSign
+    noDef = defSign
+    noDel = delSign
+    noLocals = localsSign
   Num* = float
   StackObj* = object
     case isEval*: bool
@@ -75,7 +81,7 @@ type
 
 var UNARY_OPERATORS, BINARY_OPERATORS, NULLARY_OPERATORS = newSeq[Operator]()
 
-proc `$`(o: Operator): string =
+proc `$`*(o: Operator): string =
   let operation = case o.arity:
     of unary: $o.uOperation
     of binary: $o.bOperation
@@ -132,18 +138,21 @@ let
   FACTORIAL = unaryOperator(factorial)
   FLOOR = unaryOperator(floor)
   CEILING = unaryOperator(ceiling)
-  EXPLAIN = unaryOperator(explainToken)
   ROUND = unaryOperator(round)
   PEEK = nullaryOperator(showLast, minimumStackLength = 1)
   QUIT = nullaryOperator(exit)
   SHOW = nullaryOperator(showStack)
-  CLEAR = nullaryOperator(clear)
+  CLEAR = nullaryOperator(noClear)
   DUP = nullaryOperator(dup, minimumStackLength = 1)
   SWAP = nullaryOperator(swapLast, minimumStackLength = 2)
   DROP = nullaryOperator(drop, minimumStackLength = 1)
   POP = nullaryOperator(popLast, minimumStackLength = 1)
+  EXPLAIN = nullaryOperator(explainToken, minimumStackLength = 1)
   EXPLAIN_ALL = nullaryOperator(explainAll)
   HISTORY = nullaryOperator(noHistory)
+  DEF = nullaryOperator(noDef, minimumStackLength = 2)
+  DEL = nullaryOperator(noDel, minimumStackLength = 1)
+  LOCALS = nullaryOperator(noLocals)
 
 proc getOperator*(t: string): Option[Operator] =
   case t
@@ -171,6 +180,9 @@ proc getOperator*(t: string): Option[Operator] =
   of explainSign, "explain": some EXPLAIN
   of explainAllSign, "explain-all": some EXPLAIN_ALL
   of historySign, "history": some HISTORY
+  of defSign: some DEF
+  of delSign: some DEL
+  of localsSign: some LOCALS
   else: none(Operator)
 
 proc explain(o: Operator, x: string): string =
@@ -185,7 +197,6 @@ proc explain(o: Operator, x: string): string =
     of floor: "floor of $1" % x
     of ceiling: "ceiling of $1" % x
     of round: "round $1" % x
-    of explainToken: "explain $1" % x
 
 proc explain(o: Operator, x, y: string): string =
   let
@@ -202,19 +213,23 @@ proc stackOperatorExplain(o: Operator, y = "NA", x = "NA"): string =
     of showLast: "peek at stack"
     of exit: "quit"
     of showStack: "show stack"
-    of clear: "clear stack"
+    of noClear: "clear stack"
     of dup: "duplicate $1" % y
     of swapLast: "swap $1 and $2" % [x, y]
     of drop: "drop $1" % y
     of popLast: "print and drop $1" % y
     of explainAll: "explain stack"
     of noHistory: "show history"
+    of explainToken: "explain $1" % y
+    of noDef: "define $1 as $2" % [y, x]
+    of noDel: "remove definition of $1" % y
+    of noLocals: "display variables"
 
 proc remainderStr(stack: Stack): string =
   if stack.len > 0: join(stack) & " "
   else: ""
 
-proc explain(o: Operator, stack: Stack): string =
+proc explain*(o: Operator, stack: Stack): string =
   var
     x, y: string
     remainder: Stack
@@ -236,15 +251,16 @@ proc explain(o: Operator, stack: Stack): string =
     remainder = stack
     remainderStr = ""
 
-    if o.minimumStackLength == 0:
+    case o.minimumStackLength
+    of 0:
       explainStr = o.stackOperatorExplain()
-    elif o.minimumStackLength == 1:
+    of 1:
       y = $stack[^1]
-      explainStr = o.stackOperatorExplain(y)
+      explainStr = o.stackOperatorExplain(y = y)
     else:
       y = $stack[^1]
       x = $stack[^2]
-      explainStr = o.stackOperatorExplain(y, x)
+      explainStr = o.stackOperatorExplain(y = y, x = x)
   let
     name = $o & ":"
     explanation = (
@@ -279,34 +295,24 @@ proc eval*(op: Operator; x, y: Num): Num =
     of power:
       result = pow(x, y)
 
-proc eval*(op: Operator, x: StackObj, stack: Stack): Option[StackObj] =
+proc eval*(op: Operator, x: StackObj, stack: Stack): StackObj =
   ## Evaluation of unary operations.
   case op.uOperation:
     of squared:
-      result = some(initStackObj(x.value * x.value))
+      result = initStackObj(x.value * x.value)
     of negative:
-      result = some(initStackObj( -x.value))
+      result = initStackObj( -x.value)
     of absolute:
-      result = some(initStackObj(abs(x.value)))
+      result = initStackObj(abs(x.value))
     of squareRoot:
-      result = some(initStackObj(sqrt(x.value)))
+      result = initStackObj(sqrt(x.value))
     of factorial:
       if fmod(x.value, 1.0) != 0:
         raise newException(ValueError, "Can only take ! of whole numbers.")
-      result = some(initStackObj(float(fac(int(x.value)))))
+      result = initStackObj(float(fac(int(x.value))))
     of floor:
-      result = some(initStackObj(floor(x.value)))
+      result = initStackObj(floor(x.value))
     of ceiling:
-      result = some(initStackObj(ceil(x.value)))
+      result = initStackObj(ceil(x.value))
     of round:
-      result = some(initStackObj(round(x.value)))
-    of explainToken:
-      if x.isEval:
-        raise newException(ValueError, "Can't explain value: $1" % $x.value)
-      else:
-        let opToExplain = getOperator(x.token)
-        if opToExplain.isSome:
-          echo opToExplain.get.explain(stack)
-        else:
-          echo "Don't know " & x.token
-        result = none(StackObj)
+      result = initStackObj(round(x.value))
