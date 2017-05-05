@@ -138,8 +138,8 @@ proc `$`*(o: Operator): string =
   $o.arity & " op " & operation
 
 proc `$`*(o: StackObj): string =
-  ## Display a stack object. Display whole numbers as integers, unevaluated
-  ## symbols as tokens.
+  ## Display a stack object. Display whole numbers as integers,
+  ## unevaluated symbols as tokens.
   if o.isEval:
     if fmod(o.value, 1.0) == 0:
       $int(o.value)
@@ -229,8 +229,8 @@ proc remainderStr(stack: Stack): string =
   else: ""
 
 proc explain*(o: Operator, stack: Stack): string =
-  ## Given an operator, pull out the appropriate number of arguments and return
-  ## a string projecting the given operation.
+  ## Given an operator, pull out the appropriate number of arguments
+  ## and return a string projecting the given operation.
   var
     x, y: string
     remainder: Stack
@@ -279,8 +279,8 @@ proc getOperatorsForStackLength(length: int): seq[Operator] =
     result = NULLARY_OPERATORS.filterIt(it.minimumStackLength == 0)
 
 proc explain*(stack: Stack): string =
-  ## Generate explanatory text for all operators eligible for the current
-  ## stack.
+  ## Generate explanatory text for all operators eligible for the
+  ## current stack.
   let eligibleOperators = getOperatorsForStackLength(stack.len)
   eligibleOperators.mapIt(it.explain(stack)).join("\n")
 

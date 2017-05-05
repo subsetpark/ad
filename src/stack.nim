@@ -43,6 +43,33 @@ proc showHistory*() =
 proc dropLast(stack: var Stack) =
   stack.setLen(stack.len - 1)
 
+proc explain(obj: StackObj, stack: Stack) =
+  if obj.isEval:
+    raise newException(ValueError, "Can't explain value: $1" % $obj.value)
+  else:
+    let opToExplain = getOperator(obj.token)
+    if opToExplain.isSome:
+      echo opToExplain.get.explain(stack)
+    else:
+      echo "Don't know " & obj.token
+
+proc def(name, value: StackObj) =
+  if name.isEval:
+    raise newException(ValueError, "Can't assign value to $1" % $name.value)
+  elif not value.isEval:
+    raise newException(ValueError, "Can't assign $1 to a variable" % value.token)
+  locals[name.token] = value.value
+
+proc del(name: StackObj) =
+  if name.token notin locals:
+    raise newException(ValueError, "$1 not currently a defined variable" % name.token)
+  else:
+    locals.del(name.token)
+
+proc showLocals() =
+  for sign, value in locals:
+    echo "$1: $2" % [sign, $value]
+
 proc mutate(op: Operator, stack: var Stack) =
   ## Evaluation of stack operations.
   case op.nOperation
@@ -74,32 +101,17 @@ proc mutate(op: Operator, stack: var Stack) =
     showHistory()
   of explainToken:
     let x = stack.pop()
-    if x.isEval:
-      raise newException(ValueError, "Can't explain value: $1" % $x.value)
-    else:
-      let opToExplain = getOperator(x.token)
-      if opToExplain.isSome:
-        echo opToExplain.get.explain(stack)
-      else:
-        echo "Don't know " & x.token
+    explain(x, stack)
   of noDef:
     let
       name = stack.pop()
       value = stack.pop()
-    if name.isEval:
-      raise newException(ValueError, "Can't assign value to $1" % $name.value)
-    elif not value.isEval:
-      raise newException(ValueError, "Can't assign $1 to a variable" % value.token)
-    locals[name.token] = value.value
+    def(name, value)
   of noDel:
     let name = stack.pop()
-    if name.token notin locals:
-      raise newException(ValueError, "$1 not currently a defined variable" % name.token)
-    else:
-      locals.del(name.token)
+    del(name)
   of noLocals:
-    for sign, value in locals:
-      echo "$1: $2" % [sign, $value]
+    showLocals()
 
 proc operate(stack: var Stack, op: Operator): Num =
   case op.arity
