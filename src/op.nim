@@ -63,7 +63,7 @@ type
     boLess = lessSign
     boEqualTo = equalToSign
   TrinaryOperation* = enum
-    toCond
+    toCond = condSign
   NullaryOperation* = enum
     showLast = showLastSign
     showStack = showStackSign
@@ -302,12 +302,13 @@ proc explain*(o: Operator, stack: Stack): string =
   name & explanation
 
 proc getOperatorsForStackLength(length: int): seq[Operator] =
+  result = NULLARY_OPERATORS.filterIt(it.minimumStackLength <= length)
+  if length >= 1:
+    result &= UNARY_OPERATORS
   if length >= 2:
-    result = UNARY_OPERATORS & BINARY_OPERATORS & NULLARY_OPERATORS
-  elif length == 1:
-    result = UNARY_OPERATORS & NULLARY_OPERATORS.filterIt(it.minimumStackLength <= 1)
-  else:
-    result = NULLARY_OPERATORS.filterIt(it.minimumStackLength == 0)
+    result &= BINARY_OPERATORS
+  if length >= 3:
+    result &= TRINARY_OPERATORS
 
 proc explain*(stack: Stack): string =
   ## Generate explanatory text for all operators eligible for the
