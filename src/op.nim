@@ -1,5 +1,4 @@
 import options, strutils, math, sequtils
-import typetraits
 
 const
   plusSign = "+"
@@ -26,17 +25,22 @@ const
   explainSign = "?"
   explainAllSign = "??"
   historySign = "hist"
-  defSign = "def"
+  defSign = "="
   delSign = "del"
   localsSign = "locals"
+  greaterSign = ">"
+  lessSign = "<"
+  equalToSign = "=="
+  condSign = "cond"
 
 type
   Arity* = enum
-    unary, binary, nullary = "stack"
+    unary, binary, trinary, nullary = "stack"
   Operator* = object
     case arity*: Arity
     of unary: uOperation*: UnaryOperation
     of binary: bOperation*: BinaryOperation
+    of trinary: tOperation*: TrinaryOperation
     of nullary:
       nOperation*: NullaryOperation
       minimumStackLength*: int
@@ -55,6 +59,11 @@ type
     times = timesSign
     into = intoSign
     power = powerSign
+    boGreater = greaterSign
+    boLess = lessSign
+    boEqualTo = equalToSign
+  TrinaryOperation* = enum
+    toCond
   NullaryOperation* = enum
     showLast = showLastSign
     showStack = showStackSign
@@ -79,7 +88,7 @@ type
       token*: string
   Stack* = seq[StackObj]
 
-var UNARY_OPERATORS, BINARY_OPERATORS, NULLARY_OPERATORS = newSeq[Operator]()
+var UNARY_OPERATORS, BINARY_OPERATORS, TRINARY_OPERATORS, NULLARY_OPERATORS = newSeq[Operator]()
 
 proc unaryOperator(operation: UnaryOperation): Operator =
   result.arity = unary
@@ -92,6 +101,12 @@ proc binaryOperator(operation: BinaryOperation): Operator =
   result.bOperation = operation
 
   BINARY_OPERATORS.add(result)
+
+proc trinaryOperator(operation: TrinaryOperation): Operator =
+  result.arity = trinary
+  result.tOperation = operation
+
+  TRINARY_OPERATORS.add(result)
 
 proc nullaryOperator(operation: NullaryOperation, minimumStackLength = 0): Operator =
   result.arity = nullary
@@ -106,6 +121,9 @@ let
   TIMES = binaryOperator(times)
   INTO = binaryOperator(into)
   POWER = binaryOperator(power)
+  GREATERTHAN = binaryOperator(boGreater)
+  LESSTHAN = binaryOperator(boLess)
+  EQUALTO = binaryOperator(boEqualTo)
   SQUARED = unaryOperator(squared)
   ABSOLUTE = unaryOperator(absolute)
   NEGATIVE = unaryOperator(negative)
@@ -113,6 +131,7 @@ let
   FACTORIAL = unaryOperator(factorial)
   FLOOR = unaryOperator(floor)
   CEILING = unaryOperator(ceiling)
+  COND = trinaryOperator(toCond)
   ROUND = unaryOperator(round)
   PEEK = nullaryOperator(showLast, minimumStackLength = 1)
   QUIT = nullaryOperator(exit)
@@ -135,16 +154,20 @@ proc `$`*(o: Operator): string =
     of unary: $o.uOperation
     of binary: $o.bOperation
     of nullary: $o.nOperation
+    of trinary: $o.tOperation
   $o.arity & " op " & operation
+
+proc `$`*(n: float): string =
+  if fmod(n, 1.0) == 0:
+    $int(n)
+  else:
+    system.`$` n
 
 proc `$`*(o: StackObj): string =
   ## Display a stack object. Display whole numbers as integers,
   ## unevaluated symbols as tokens.
   if o.isEval:
-    if fmod(o.value, 1.0) == 0:
-      $int(o.value)
-    else:
-      system.`$` o.value
+    $o.value
   else:
     o.token
 
@@ -162,6 +185,10 @@ proc getOperator*(t: string): Option[Operator] =
   of "x", timesSign: some TIMES
   of intoSign: some INTO
   of powerSign, "**", "pow": some POWER
+  of greaterSign, "gt": some GREATERTHAN
+  of lessSign, "lt": some LESSTHAN
+  of equalToSign, "eq": some EQUALTO
+  of condSign: some COND
   of squaredSign: some SQUARED
   of absoluteSign: some ABSOLUTE
   of negativeSign: some NEGATIVE
@@ -174,14 +201,14 @@ proc getOperator*(t: string): Option[Operator] =
   of "q", exitSign: some QUIT
   of "s", showStackSign, "stack": some SHOW
   of "c", clearSign: some CLEAR
-  of "d", dupSign: some DUP
-  of "sw", swapSign: some SWAP
-  of "dr", dropSign: some DROP
+  of dupSign: some DUP
+  of swapSign: some SWAP
+  of dropSign: some DROP
   of popSign, ".": some POP
   of explainSign, "explain": some EXPLAIN
   of explainAllSign, "explain-all": some EXPLAIN_ALL
   of historySign, "history": some HISTORY
-  of defSign: some DEF
+  of defSign, "def": some DEF
   of delSign: some DEL
   of localsSign: some LOCALS
   else: none(Operator)
@@ -198,14 +225,11 @@ proc explain(o: Operator, x: string): string =
     of round: "round $1" % x
 
 proc explain(o: Operator, x, y: string): string =
-  let
-    infix = case o.bOperation:
-    of plus: "+"
-    of minus: "-"
-    of times: "*"
-    of into: "/"
-    of power: "^"
-  "$1 $2 $3" % [x, infix, y]
+  "$1 $2 $3" % [x, $o.bOperation, y]
+
+proc explain(o: Operator, x, y, z: string): string =
+  case o.tOperation:
+    of toCond: "if $1 then $2 else $3" % [x, y, z]
 
 proc stackOperatorExplain(o: Operator, y = "NA", x = "NA"): string =
   case o.nOperation:
@@ -232,7 +256,7 @@ proc explain*(o: Operator, stack: Stack): string =
   ## Given an operator, pull out the appropriate number of arguments
   ## and return a string projecting the given operation.
   var
-    x, y: string
+    x, y, z: string
     remainder: Stack
     explainStr, remainderStr: string
 
@@ -248,6 +272,13 @@ proc explain*(o: Operator, stack: Stack): string =
     remainder = stack[0..stack.high - 2]
     remainderStr = remainder.remainderStr
     explainStr = "(" & o.explain(x, y) & ")"
+  of trinary:
+    z = $stack[^1]
+    y = $stack[^2]
+    x = $stack[^3]
+    remainder = stack[0..stack.high - 3]
+    remainderStr = remainder.remainderStr
+    explainStr = "(" & o.explain(x, y, z) & ")"
   of nullary:
     remainder = stack
     remainderStr = ""
@@ -284,6 +315,11 @@ proc explain*(stack: Stack): string =
   let eligibleOperators = getOperatorsForStackLength(stack.len)
   eligibleOperators.mapIt(it.explain(stack)).join("\n")
 
+proc eval*(op: Operator, x, y, z: Num): Num =
+  case op.tOperation:
+    of toCond:
+      if bool(x): y else: z
+
 proc eval*(op: Operator; x, y: Num): Num =
   ## Evaluation of binary operations.
   case op.bOperation:
@@ -297,6 +333,12 @@ proc eval*(op: Operator; x, y: Num): Num =
       result = x / y
     of power:
       result = pow(x, y)
+    of boGreater:
+      result = float(x > y)
+    of boLess:
+      result = float(x < y)
+    of boEqualTo:
+      result = float(x == y)
 
 proc eval*(op: Operator, x: Num): Num =
   ## Evaluation of unary operations.

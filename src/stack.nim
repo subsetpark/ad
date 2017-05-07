@@ -45,19 +45,22 @@ proc dropLast(stack: var Stack) =
 
 proc explain(obj: StackObj, stack: Stack) =
   if obj.isEval:
-    raise newException(ValueError, "Can't explain value: $1" % $obj.value)
+    raise newException(ValueError, "Can't explain value: $1" % $obj)
   else:
     let opToExplain = getOperator(obj.token)
     if opToExplain.isSome:
       echo opToExplain.get.explain(stack)
     else:
-      echo "Don't know " & obj.token
+      echo "Don't know " & $obj
 
 proc def(name, value: StackObj) =
   if name.isEval:
-    raise newException(ValueError, "Can't assign value to $1" % $name.value)
+    raise newException(ValueError, "Can't assign value to $1" % $name)
   elif not value.isEval:
-    raise newException(ValueError, "Can't assign $1 to a variable" % value.token)
+    raise newException(ValueError, "Can't assign $1 to a variable" % $value)
+  let checkOperator = getOperator(name.token)
+  if checkOperator.isSome:
+    raise newException(ValueError, "$1 is already defined." % $name)
   locals[name.token] = value.value
 
 proc del(name: StackObj) =
@@ -68,7 +71,7 @@ proc del(name: StackObj) =
 
 proc showLocals() =
   for sign, value in locals:
-    echo "$1: $2" % [sign, $value]
+    echo "$1: $2" % [sign, op.`$`(value)]
 
 proc mutate(op: Operator, stack: var Stack) =
   ## Evaluation of stack operations.
@@ -113,23 +116,31 @@ proc mutate(op: Operator, stack: var Stack) =
   of noLocals:
     showLocals()
 
+proc raiseStackException() = raise newException(IndexError, "Not enough stack.")
+proc raiseFieldException(op: Operator, args: varargs[StackObj]) =
+    raise newException(
+      ValueError,
+      "Could not evaluate $1 with unevaluated word(s): $2" % [
+        $op,
+        args.filterIt(not it.isEval).join(", ")])
+
 proc operate(stack: var Stack, op: Operator): Num =
   case op.arity
   of unary:
     if stack.len < 1:
-      raise newException(IndexError, "Not enough stack.")
+      raiseStackException()
     let x = stack.pop()
 
     try:
       result = eval(op, x.value)
     except FieldError:
-      raise newException(ValueError, "Could not evaluate $1 with unevaluated word: $2" % [$op, $x])
+      raiseFieldException(op, [x])
 
   of binary:
     ## Processing a binary operator: pop the last two
     ## items on the stack and push the result.
     if stack.len < 2:
-      raise newException(IndexError, "Not enough stack.")
+      raiseStackException()
     let
       y = stack.pop()
       x = stack.pop()
@@ -137,26 +148,46 @@ proc operate(stack: var Stack, op: Operator): Num =
     try:
       result = eval(op, x.value, y.value)
     except FieldError:
-      raise newException(ValueError, "Could not evaluate $1 with unevaluated word(s): $2" % [$op, @[y, x].filterIt(not it.isEval).join(", ")])
+      raiseFieldException(op, [y, x])
 
-  else:
+  of trinary:
+    if stack.len < 3:
+      raiseStackException()
+    let
+      z = stack.pop()
+      y = stack.pop()
+      x = stack.pop()
+
+    try:
+      result = eval(op, x.value, y.value, z.value)
+    except FieldError:
+      raiseFieldException(op, [z, y, x])
+
+  of nullary:
     raise newException(ValueError, "Nullary Operators have no return value.")
 
+proc parseFloat(t: string): Option[Num] =
+  const specialTokens = ["."]
+  case t
+  of "e": some E
+  of "pi": some PI
+  of "tau": some TAU
+  of specialTokens: none(Num)
+  else:
+    try:
+      some strutils.parseFloat(t)
+    except ValueError:
+      none(Num)
 
 proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
   ## Evaluate a token in the context of a stack and return a new
   ## StackObj, if appropriate.
-  var floatValue: Num = NaN
-  if t != ".":
-    try:
-      floatValue = parseFloat(t)
-    except ValueError:
-      discard
+  let floatValue = parseFloat(t)
 
-  if floatValue.classify != fcNan:
+  if floatValue.isSome:
     result = some(StackObj(
       isEval: true,
-      value: floatValue)
+      value: floatValue.get())
     )
 
   elif t in locals:
