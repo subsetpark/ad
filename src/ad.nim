@@ -1,4 +1,4 @@
-import docopt, strutils, rdstdin, options
+import strutils, rdstdin, options, os
 import stack, op, base
 
 const
@@ -14,9 +14,7 @@ will enter interactive mode, where you can
 use it as a shell for running calculations.
 """
 
-var
-  displayedControlModeMsg = false
-  mainStack: Stack = @[]
+var mainStack: Stack = @[]
 
 proc prompt(): string = "> "
 
@@ -34,13 +32,23 @@ proc handleNormalInput(input: string) =
     echo getCurrentExceptionMsg()
 
 when isMainModule:
-  # Read input from command line or interactive mode.
-  let args = docopt(doc, version=VERSION)
+  # Parse arguments
+  var args = commandLineParams()
+  # Handle quoted expressions
+  if args.len == 1 and ' ' in args[0]:
+    args = args[0].split(" ")
+  if "-h" in args or "--help" in args:
+    echo doc
+    quit()
+  if "-v" in args or "--version" in args:
+    echo "ad " & VERSION
+    quit()
   defer: mainStack.handleExit()
 
-  if args["<exp>"]:
+  # Read input from command line or interactive mode.
+  if args.len > 0:
     try:
-      mainStack.ingestLine(@(args["<exp>"]))
+      mainStack.ingestLine(args)
     except IndexError:
       quit("Imbalanced input.")
     except ValueError:
