@@ -204,3 +204,12 @@ Quoting a symbol can also be used with the ``?`` command, which takes a quoted o
     > 4 5
     > '+ ?
     binary op +:                             [(4 + 5)]
+
+How to Get it
+=============
+
+``ad`` is written in the Nim programming language. The easiest way to install is to use the nimble package manager:
+
+::
+
+    nimble install ad
