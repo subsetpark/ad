@@ -24,9 +24,6 @@ proc handleNormalInput(input: string) =
   var oldStack = mainStack
   try:
     mainStack.ingestLine(tokens)
-  except IndexError:
-    mainStack = oldStack
-    echo "Not enough stack."
   except ValueError:
     mainStack = oldStack
     echo getCurrentExceptionMsg()

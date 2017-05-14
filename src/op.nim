@@ -35,11 +35,15 @@ const
 
 type
   ObjectType = enum
-    otSymbol, otNum
+    otSymbol = "Symbol"
+    otNum = "Number"
+  Types = seq[ObjectType]
   Arity* = enum
     unary, binary, trinary, nullary = "stack"
-  MinimumStackLength = enum
-    zero, one, two
+  ArgumentNumber* = enum
+    zero, one, two, three
+  ArgumentSlot* = enum
+    x, y, z
   UnaryOperation* = enum
     squared = squaredSign
     negative = negativeSign
@@ -79,20 +83,22 @@ type
     case arity*: Arity
     of unary:
       uOperation*: UnaryOperation
-      uxType: ObjectType
+      uTypes: array[x..x, ObjectType]
     of binary:
       bOperation*: BinaryOperation
-      bxType, byType: ObjectType
+      bTypes: array[x..y, ObjectType]
     of trinary:
       tOperation*: TrinaryOperation
-      txType, tyType, tzType: ObjectType
+      tTypes: array[x..z, ObjectType]
     of nullary:
       nOperation*: NullaryOperation
-      case minimumStackLength*: MinimumStackLength
+      case minimumStackLength*: ArgumentNumber
       of one:
-        n1xType: ObjectType
+        n1Types: array[x..x, ObjectType]
       of two:
-        n2xType, n2yType: ObjectType
+        n2Types: array[x..y, ObjectType]
+      of three:
+        n3Types: array[x..y, ObjectType]
       of zero:
         discard
   Num* = float
@@ -103,30 +109,28 @@ type
     of otSymbol:
       token*: string
   Stack* = seq[StackObj]
+  Arguments = seq[StackObj]
 
 var OPERATORS = newSeq[Operator]()
 
-proc unaryOperator(operation: UnaryOperation, xType = otNum): Operator =
+proc unaryOperator(operation: UnaryOperation, types = [otNum]): Operator =
   result.arity = unary
   result.uOperation = operation
-  result.uxType = otNum
+  result.uTypes = types
 
   OPERATORS.add(result)
 
-proc binaryOperator(operation: BinaryOperation, xType, yType = otNum): Operator =
+proc binaryOperator(operation: BinaryOperation, types = [otNum, otNum]): Operator =
   result.arity = binary
   result.bOperation = operation
-  result.bxType = xType
-  result.byType = yType
+  result.bTypes = types
 
   OPERATORS.add(result)
 
-proc trinaryOperator(operation: TrinaryOperation, xType, yType, zType = otNum): Operator =
+proc trinaryOperator(operation: TrinaryOperation, types = [otNum, otNum, otNum]): Operator =
   result.arity = trinary
   result.tOperation = operation
-  result.txType = xType
-  result.tyType = yType
-  result.tzType = zType
+  result.tTypes = types
 
   OPERATORS.add(result)
 
@@ -135,13 +139,12 @@ proc nullaryOperator(operation: NullaryOperation, minimumStackLength = zero, xTy
   result.nOperation = operation
   result.minimumStackLength = minimumStackLength
   case minimumStackLength
-  of zero:
+  of zero, three:
     discard
   of one:
-    result.n1xType = xType
+    result.n1Types = [xType]
   of two:
-    result.n2xType = xType
-    result.n2yType = yType
+    result.n2Types = [xType, yType]
 
   OPERATORS.add(result)
 
@@ -201,9 +204,7 @@ proc initStackObject*(t: string): StackObj =
   result.token = t
 
 proc isEval*(o: StackObj): bool =
-  case o.objectType
-  of otSymbol: false
-  of otNum: true
+  o.objectType == otNum
 
 proc `$`*(o: StackObj): string =
   ## Display a stack object. Display whole numbers as integers,
@@ -213,10 +214,11 @@ proc `$`*(o: StackObj): string =
   else:
     o.token
 
-proc join*(stack: Stack): string =
+proc join*[T](stack: T): string =
   ## Concatenate the stack with spaces.
   strutils.join(stack, " ")
 
+proc `$`*(types: Types): string = "(" & join(types) & ")"
 proc `$`*(stack: Stack): string = "[" & join(stack) & "]"
 
 proc getOperator*(t: string): Option[Operator] =
@@ -255,6 +257,13 @@ proc getOperator*(t: string): Option[Operator] =
   of localsSign: some LOCALS
   else: none(Operator)
 
+proc numberOfArguments(op: Operator): ArgumentNumber =
+  case op.arity:
+    of trinary: three
+    of binary: two
+    of unary: one
+    of nullary: op.minimumStackLength.ArgumentNumber
+
 proc explain(o: Operator, x: string): string =
   case o.uOperation:
     of squared: "$1 ^ 2" % x
@@ -273,21 +282,21 @@ proc explain(o: Operator, x, y, z: string): string =
   case o.tOperation:
     of toCond: "if $1 then $2 else $3" % [x, y, z]
 
-proc stackOperatorExplain(o: Operator, y = "NA", x = "NA"): string =
+proc stackOperatorExplain(o: Operator, x = "NA", y = "NA"): string =
   case o.nOperation:
     of showLast: "peek at stack"
     of exit: "quit"
     of showStack: "show stack"
     of noClear: "clear stack"
-    of dup: "duplicate $1" % y
+    of dup: "duplicate $1" % x
     of swapLast: "swap $1 and $2" % [x, y]
-    of drop: "drop $1" % y
-    of popLast: "print and drop $1" % y
+    of drop: "drop $1" % x
+    of popLast: "print and drop $1" % x
     of explainAll: "explain stack"
     of noHistory: "show history"
-    of explainToken: "explain $1" % y
-    of noDef: "define $1 as $2" % [y, x]
-    of noDel: "remove definition of $1" % y
+    of explainToken: "explain $1" % x
+    of noDef: "define $1 as $2" % [x, y]
+    of noDel: "remove definition of $1" % x
     of noLocals: "display variables"
 
 proc remainderStr(stack: Stack): string =
@@ -302,22 +311,29 @@ proc explain*(o: Operator, stack: Stack): string =
     remainder: Stack
     explainStr, remainderStr: string
 
+  case o.numberOfArguments:
+    of three:
+      z = $stack[^1]
+      y = $stack[^2]
+      x = $stack[^3]
+    of two:
+      y = $stack[^1]
+      x = $stack[^2]
+    of one:
+      x = $stack[^1]
+    else:
+      discard
+
   case o.arity
   of unary:
-    y = $stack[^1]
     remainder = stack[0..stack.high - 1]
     remainderStr = remainder.remainderStr
-    explainStr = "(" & o.explain(y) & ")"
+    explainStr = "(" & o.explain(x) & ")"
   of binary:
-    y = $stack[^1]
-    x = $stack[^2]
     remainder = stack[0..stack.high - 2]
     remainderStr = remainder.remainderStr
     explainStr = "(" & o.explain(x, y) & ")"
   of trinary:
-    z = $stack[^1]
-    y = $stack[^2]
-    x = $stack[^3]
     remainder = stack[0..stack.high - 3]
     remainderStr = remainder.remainderStr
     explainStr = "(" & o.explain(x, y, z) & ")"
@@ -326,15 +342,12 @@ proc explain*(o: Operator, stack: Stack): string =
     remainderStr = ""
 
     case o.minimumStackLength
-    of zero:
+    of zero, three:
       explainStr = o.stackOperatorExplain()
     of one:
-      y = $stack[^1]
-      explainStr = o.stackOperatorExplain(y = y)
+      explainStr = o.stackOperatorExplain(x = x)
     of two:
-      y = $stack[^1]
-      x = $stack[^2]
-      explainStr = o.stackOperatorExplain(y = y, x = x)
+      explainStr = o.stackOperatorExplain(x = x, y = y)
   let
     name = $o & ":"
     explanation = (
@@ -343,49 +356,48 @@ proc explain*(o: Operator, stack: Stack): string =
 
   name & explanation
 
-proc canOperateOnStack(op: Operator, stack: Stack): bool =
-  var z, y, x: StackObj
+proc getArguments*(op: Operator, stack: Stack): Arguments =
+  ## Given an operator and a stack, return the appropriate argument values for
+  ## that operator.
+  let argumentNumber = min(op.numberOfArguments.int, stack.len)
+  result = stack[^argumentNumber..^1]
+
+proc getTypes*(op: Operator): Types =
+  ## Get the expected types for an operator.
   case op.arity:
-    of trinary:
-      if stack.len < 3:
-        return false
-      z = stack[^1]
-      y = stack[^2]
-      x = stack[^3]
-      result = (z.objectType == op.tzType and
-        y.objectType == op.tyType and
-        x.objectType == op.txType)
-    of binary:
-      if stack.len < 2:
-        return false
-      y = stack[^1]
-      x = stack[^2]
-      result = (y.objectType == op.byType and
-        x.objectType == op.bxType)
-    of unary:
-      if stack.len < 1:
-        return false
-      x = stack[^1]
-      result = x.objectType == op.uxType
+    of trinary: @(op.tTypes)
+    of binary: @(op.bTypes)
+    of unary: @(op.uTypes)
     of nullary:
-      if stack.len < op.minimumStackLength.int:
-        return false
       case op.minimumStackLength:
-        of zero:
-          result = true
-        of one:
-          x = stack[^1]
-          result = x.objectType == op.n1xType
-        of two:
-          y = stack[^1]
-          x = stack[^2]
-          result = (y.objectType == op.n2yType and
-            x.objectType == op.n2xType)
+        of zero, three: @[]
+        of one: @(op.n1Types)
+        of two: @(op.n2Types)
+
+proc getTypes*(args: Arguments): Types =
+  ## Get the types for a set of command arguments.
+  args.mapIt(it.objectType)
+
+proc typeCheck*(op: Operator, stack: Stack): bool =
+  ## Perform runtime type checking, checking whether the number and type of
+  ## arguments in the stack matches the expected argument number and type of
+  ## the operator.
+  let
+    expectedArgumentNumber = op.numberOfArguments
+    arguments = op.getArguments(stack)
+
+  if arguments.len < expectedArgumentNumber.int:
+    return false
+
+  let
+    requiredTypes = op.getTypes()
+    argTypes = arguments.getTypes()
+  result = requiredTypes == argTypes
 
 proc explain*(stack: Stack): string =
   ## Generate explanatory text for all operators eligible for the
   ## current stack.
-  OPERATORS.filterIt(it.canOperateOnStack(stack)).mapIt(it.explain(stack)).join("\n")
+  OPERATORS.filterIt(it.typeCheck(stack)).mapIt(it.explain(stack)).join("\n")
 
 proc eval*(op: Operator, x, y, z: Num): Num =
   case op.tOperation:

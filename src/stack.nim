@@ -44,20 +44,13 @@ proc dropLast(stack: var Stack) =
   stack.setLen(stack.len - 1)
 
 proc explain(obj: StackObj, stack: Stack) =
-  if obj.isEval:
-    raise newException(ValueError, "Can't explain value: $1" % $obj)
+  let opToExplain = getOperator(obj.token)
+  if opToExplain.isSome:
+    echo opToExplain.get.explain(stack)
   else:
-    let opToExplain = getOperator(obj.token)
-    if opToExplain.isSome:
-      echo opToExplain.get.explain(stack)
-    else:
-      echo "Don't know " & $obj
+    echo "Don't know " & $obj
 
 proc def(name, value: StackObj) =
-  if name.isEval:
-    raise newException(ValueError, "Can't assign value to $1" % $name)
-  elif not value.isEval:
-    raise newException(ValueError, "Can't assign $1 to a variable" % $value)
   let checkOperator = getOperator(name.token)
   if checkOperator.isSome:
     raise newException(ValueError, "$1 is already defined." % $name)
@@ -116,52 +109,28 @@ proc mutate(op: Operator, stack: var Stack) =
   of noLocals:
     showLocals()
 
-proc raiseStackException() = raise newException(IndexError, "Not enough stack.")
-proc raiseFieldException(op: Operator, args: varargs[StackObj]) =
-    raise newException(
-      ValueError,
-      "Could not evaluate $1 with unevaluated word(s): $2" % [
-        $op,
-        args.filterIt(not it.isEval).join(", ")])
-
 proc operate(stack: var Stack, op: Operator): Num =
   case op.arity
   of unary:
-    if stack.len < 1:
-      raiseStackException()
     let x = stack.pop()
-
-    try:
-      result = eval(op, x.value)
-    except FieldError:
-      raiseFieldException(op, [x])
+    result = eval(op, x.value)
 
   of binary:
     ## Processing a binary operator: pop the last two
     ## items on the stack and push the result.
-    if stack.len < 2:
-      raiseStackException()
     let
       y = stack.pop()
       x = stack.pop()
 
-    try:
-      result = eval(op, x.value, y.value)
-    except FieldError:
-      raiseFieldException(op, [y, x])
+    result = eval(op, x.value, y.value)
 
   of trinary:
-    if stack.len < 3:
-      raiseStackException()
     let
       z = stack.pop()
       y = stack.pop()
       x = stack.pop()
 
-    try:
-      result = eval(op, x.value, y.value, z.value)
-    except FieldError:
-      raiseFieldException(op, [z, y, x])
+    result = eval(op, x.value, y.value, z.value)
 
   of nullary:
     raise newException(ValueError, "Nullary Operators have no return value.")
@@ -179,6 +148,17 @@ proc parseFloat(t: string): Option[Num] =
     except ValueError:
       none(Num)
 
+proc raiseTypeException(operator: Operator, stack: Stack) =
+  ## Get type information for operator and arguments and raise.
+  var
+    msg: string
+    arguments = operator.getArguments(stack)
+
+  msg = "type failure: [$#] requires types $#, but received types $#" % [
+      $operator, $operator.getTypes, $getTypes(arguments)
+    ]
+  raise newException(ValueError, msg)
+
 proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
   ## Evaluate a token in the context of a stack and return a new
   ## StackObj, if appropriate.
@@ -195,6 +175,10 @@ proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
 
     if maybeOperator.isSome:
       let operator = maybeOperator.get()
+      # Perform runtime type checking, compare expected types of operator
+      # against argument types
+      if not operator.typeCheck(stack):
+        raiseTypeException(operator, stack)
 
       if operator.arity == nullary:
         operator.mutate(stack)

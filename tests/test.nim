@@ -1,4 +1,4 @@
-import unittest, random, strutils, sequtils
+import unittest, random, strutils, sequtils, options
 import "../src/stack", "../src/op"
 
 proc ingestLine(stack: var Stack, s: string) =
@@ -87,3 +87,33 @@ suite "eligible operators":
 
       lines = eligibleExplain.splitLines
     check 18 == lines.len
+
+suite "types":
+
+  setUp:
+    let
+      types1 = getTypes(@[initStackObject(4.0), initStackObject("foo")])
+      types2 = getTypes(@[initStackObject(2.0), initStackObject("bar")])
+      types3 = getTypes(@[initStackObject(4.0), initStackObject(5.0)])
+      types4 = getTypes(@[initStackObject(4.0), initStackObject("foo"), initStackObject("bar")])
+      plus_types = getOperator("+").get().getTypes()
+      minus_types = getOperator("-").get().getTypes()
+      def_types = getOperator("def").get().getTypes()
+
+  test "test get types":
+    check:
+      getTypes(@[]).len == 0
+      types1 == types2
+      types1 != types3
+      types1 != types4
+
+  test "test get operator types":
+    check:
+      plus_types == minus_types
+      plus_types != def_types
+
+  test "check types":
+    check:
+      types1 != plus_types
+      types1 == def_types
+      def_types == types1
