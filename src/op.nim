@@ -171,11 +171,11 @@ let
   SWAP = nullaryOperator(swapLast, minimumStackLength = two)
   DROP = nullaryOperator(drop, minimumStackLength = one)
   POP = nullaryOperator(popLast, minimumStackLength = one)
-  EXPLAIN = nullaryOperator(explainToken, minimumStackLength = one)
+  EXPLAIN = nullaryOperator(explainToken, minimumStackLength = one, xType = otSymbol)
   EXPLAIN_ALL = nullaryOperator(explainAll)
   HISTORY = nullaryOperator(noHistory)
-  DEF = nullaryOperator(noDef, minimumStackLength = two)
-  DEL = nullaryOperator(noDel, minimumStackLength = one)
+  DEF = nullaryOperator(noDef, minimumStackLength = two, yType = otSymbol)
+  DEL = nullaryOperator(noDel, minimumStackLength = one, xType = otSymbol)
   LOCALS = nullaryOperator(noLocals)
 
 proc `$`*(o: Operator): string =
@@ -344,15 +344,43 @@ proc explain*(o: Operator, stack: Stack): string =
   name & explanation
 
 proc canOperateOnStack(op: Operator, stack: Stack): bool =
+  var z, y, x: StackObj
   case op.arity:
     of trinary:
-      stack.len >= 3
+      if stack.len < 3:
+        return false
+      z = stack[^1]
+      y = stack[^2]
+      x = stack[^3]
+      result = (z.objectType == op.tzType and
+        y.objectType == op.tyType and
+        x.objectType == op.txType)
     of binary:
-      stack.len >= 2
+      if stack.len < 2:
+        return false
+      y = stack[^1]
+      x = stack[^2]
+      result = (y.objectType == op.byType and
+        x.objectType == op.bxType)
     of unary:
-      stack.len >= 1
+      if stack.len < 1:
+        return false
+      x = stack[^1]
+      result = x.objectType == op.uxType
     of nullary:
-      stack.len >= op.minimumStackLength.int
+      if stack.len < op.minimumStackLength.int:
+        return false
+      case op.minimumStackLength:
+        of zero:
+          result = true
+        of one:
+          x = stack[^1]
+          result = x.objectType == op.n1xType
+        of two:
+          y = stack[^1]
+          x = stack[^2]
+          result = (y.objectType == op.n2yType and
+            x.objectType == op.n2xType)
 
 proc explain*(stack: Stack): string =
   ## Generate explanatory text for all operators eligible for the
