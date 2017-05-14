@@ -30,7 +30,7 @@ suite "ad unit tests":
     check stack.values == @[1.0, 7.5]
 
 proc toStack(nums: seq[float]): Stack =
-  nums.mapIt(StackObj(isEval: true, value: it))
+  nums.mapIt(initStackObject(it))
 
 suite "stack display":
 

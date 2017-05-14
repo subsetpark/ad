@@ -34,16 +34,12 @@ const
   condSign = "cond"
 
 type
+  ObjectType = enum
+    otSymbol, otNum
   Arity* = enum
     unary, binary, trinary, nullary = "stack"
-  Operator* = object
-    case arity*: Arity
-    of unary: uOperation*: UnaryOperation
-    of binary: bOperation*: BinaryOperation
-    of trinary: tOperation*: TrinaryOperation
-    of nullary:
-      nOperation*: NullaryOperation
-      minimumStackLength*: int
+  MinimumStackLength = enum
+    zero, one, two
   UnaryOperation* = enum
     squared = squaredSign
     negative = negativeSign
@@ -79,41 +75,75 @@ type
     noDef = defSign
     noDel = delSign
     noLocals = localsSign
+  Operator* = object
+    case arity*: Arity
+    of unary:
+      uOperation*: UnaryOperation
+      uxType: ObjectType
+    of binary:
+      bOperation*: BinaryOperation
+      bxType, byType: ObjectType
+    of trinary:
+      tOperation*: TrinaryOperation
+      txType, tyType, tzType: ObjectType
+    of nullary:
+      nOperation*: NullaryOperation
+      case minimumStackLength*: MinimumStackLength
+      of one:
+        n1xType: ObjectType
+      of two:
+        n2xType, n2yType: ObjectType
+      of zero:
+        discard
   Num* = float
   StackObj* = object
-    case isEval*: bool
-    of true:
+    case objectType: ObjectType
+    of otNum:
       value*: Num
-    of false:
+    of otSymbol:
       token*: string
   Stack* = seq[StackObj]
 
-var UNARY_OPERATORS, BINARY_OPERATORS, TRINARY_OPERATORS, NULLARY_OPERATORS = newSeq[Operator]()
+var OPERATORS = newSeq[Operator]()
 
-proc unaryOperator(operation: UnaryOperation): Operator =
+proc unaryOperator(operation: UnaryOperation, xType = otNum): Operator =
   result.arity = unary
   result.uOperation = operation
+  result.uxType = otNum
 
-  UNARY_OPERATORS.add(result)
+  OPERATORS.add(result)
 
-proc binaryOperator(operation: BinaryOperation): Operator =
+proc binaryOperator(operation: BinaryOperation, xType, yType = otNum): Operator =
   result.arity = binary
   result.bOperation = operation
+  result.bxType = xType
+  result.byType = yType
 
-  BINARY_OPERATORS.add(result)
+  OPERATORS.add(result)
 
-proc trinaryOperator(operation: TrinaryOperation): Operator =
+proc trinaryOperator(operation: TrinaryOperation, xType, yType, zType = otNum): Operator =
   result.arity = trinary
   result.tOperation = operation
+  result.txType = xType
+  result.tyType = yType
+  result.tzType = zType
 
-  TRINARY_OPERATORS.add(result)
+  OPERATORS.add(result)
 
-proc nullaryOperator(operation: NullaryOperation, minimumStackLength = 0): Operator =
+proc nullaryOperator(operation: NullaryOperation, minimumStackLength = zero, xType, yType = otNum): Operator =
   result.arity = nullary
   result.nOperation = operation
   result.minimumStackLength = minimumStackLength
+  case minimumStackLength
+  of zero:
+    discard
+  of one:
+    result.n1xType = xType
+  of two:
+    result.n2xType = xType
+    result.n2yType = yType
 
-  NULLARY_OPERATORS.add(result)
+  OPERATORS.add(result)
 
 let
   PLUS = binaryOperator(plus)
@@ -133,19 +163,19 @@ let
   CEILING = unaryOperator(ceiling)
   COND = trinaryOperator(toCond)
   ROUND = unaryOperator(round)
-  PEEK = nullaryOperator(showLast, minimumStackLength = 1)
+  PEEK = nullaryOperator(showLast, minimumStackLength = one)
   QUIT = nullaryOperator(exit)
   SHOW = nullaryOperator(showStack)
   CLEAR = nullaryOperator(noClear)
-  DUP = nullaryOperator(dup, minimumStackLength = 1)
-  SWAP = nullaryOperator(swapLast, minimumStackLength = 2)
-  DROP = nullaryOperator(drop, minimumStackLength = 1)
-  POP = nullaryOperator(popLast, minimumStackLength = 1)
-  EXPLAIN = nullaryOperator(explainToken, minimumStackLength = 1)
+  DUP = nullaryOperator(dup, minimumStackLength = one)
+  SWAP = nullaryOperator(swapLast, minimumStackLength = two)
+  DROP = nullaryOperator(drop, minimumStackLength = one)
+  POP = nullaryOperator(popLast, minimumStackLength = one)
+  EXPLAIN = nullaryOperator(explainToken, minimumStackLength = one)
   EXPLAIN_ALL = nullaryOperator(explainAll)
   HISTORY = nullaryOperator(noHistory)
-  DEF = nullaryOperator(noDef, minimumStackLength = 2)
-  DEL = nullaryOperator(noDel, minimumStackLength = 1)
+  DEF = nullaryOperator(noDef, minimumStackLength = two)
+  DEL = nullaryOperator(noDel, minimumStackLength = one)
   LOCALS = nullaryOperator(noLocals)
 
 proc `$`*(o: Operator): string =
@@ -162,6 +192,18 @@ proc `$`*(n: float): string =
     $int(n)
   else:
     system.`$` n
+
+proc initStackObject*(val: Num): StackObj =
+  result.objectType = otNum
+  result.value = val
+proc initStackObject*(t: string): StackObj =
+  result.objectType = otSymbol
+  result.token = t
+
+proc isEval*(o: StackObj): bool =
+  case o.objectType
+  of otSymbol: false
+  of otNum: true
 
 proc `$`*(o: StackObj): string =
   ## Display a stack object. Display whole numbers as integers,
@@ -284,12 +326,12 @@ proc explain*(o: Operator, stack: Stack): string =
     remainderStr = ""
 
     case o.minimumStackLength
-    of 0:
+    of zero:
       explainStr = o.stackOperatorExplain()
-    of 1:
+    of one:
       y = $stack[^1]
       explainStr = o.stackOperatorExplain(y = y)
-    else:
+    of two:
       y = $stack[^1]
       x = $stack[^2]
       explainStr = o.stackOperatorExplain(y = y, x = x)
@@ -301,20 +343,21 @@ proc explain*(o: Operator, stack: Stack): string =
 
   name & explanation
 
-proc getOperatorsForStackLength(length: int): seq[Operator] =
-  result = NULLARY_OPERATORS.filterIt(it.minimumStackLength <= length)
-  if length >= 1:
-    result &= UNARY_OPERATORS
-  if length >= 2:
-    result &= BINARY_OPERATORS
-  if length >= 3:
-    result &= TRINARY_OPERATORS
+proc canOperateOnStack(op: Operator, stack: Stack): bool =
+  case op.arity:
+    of trinary:
+      stack.len >= 3
+    of binary:
+      stack.len >= 2
+    of unary:
+      stack.len >= 1
+    of nullary:
+      stack.len >= op.minimumStackLength.int
 
 proc explain*(stack: Stack): string =
   ## Generate explanatory text for all operators eligible for the
   ## current stack.
-  let eligibleOperators = getOperatorsForStackLength(stack.len)
-  eligibleOperators.mapIt(it.explain(stack)).join("\n")
+  OPERATORS.filterIt(it.canOperateOnStack(stack)).mapIt(it.explain(stack)).join("\n")
 
 proc eval*(op: Operator, x, y, z: Num): Num =
   case op.tOperation:

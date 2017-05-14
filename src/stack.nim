@@ -185,16 +185,10 @@ proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
   let floatValue = parseFloat(t)
 
   if floatValue.isSome:
-    result = some(StackObj(
-      isEval: true,
-      value: floatValue.get())
-    )
+    result = some(initStackObject(floatValue.get()))
 
   elif t in locals:
-    result = some(StackObj(
-      isEval: true,
-      value: locals[t]
-    ))
+    result = some(initStackObject(locals[t]))
 
   else:
     let maybeOperator = getOperator(t)
@@ -207,10 +201,7 @@ proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
         result = none(StackObj)
 
       else:
-        result = some(StackObj(
-          isEval: true,
-          value: stack.operate(operator))
-        )
+        result = some(initStackObject(stack.operate(operator)))
         history.add(result.get())
         if history.len > HISTORY_MAX_LENGTH:
           history.delete(0)
@@ -218,7 +209,7 @@ proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
     else:
       case t[0]
       of QUOTE:
-        result = some(StackObj(token: t[1..t.high]))
+        result = some(initStackObject(t[1..t.high]))
       else:
         raise newException(ValueError, "Unrecognized token: $1" % t)
 
