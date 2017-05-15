@@ -34,15 +34,33 @@ proc toStack(nums: seq[float]): Stack =
 
 suite "stack display":
 
+  setUp:
+    var toExplain = @[1.0, 3.0, 4.5].toStack()
+
   test "explain stack":
     let
-      eligibleExplain = @[1.0, 3.0, 4.5].toStack.explain()
+      eligibleExplain = toExplain.explain()
       allLines = eligibleExplain.splitLines
 
       explainLines = [
         "binary op +:                         [1 (3 + 4.5)]",
         "unary op neg:                         [1 3 (-4.5)]",
-        "stack op dup:                      [duplicate 4.5]"
+        "stack op dup:                        duplicate 4.5"
+      ]
+    for line in explainLines:
+      check line in allLines
+
+  test "explain with no remainder":
+    toExplain.setLen(toExplain.len - 1)
+
+    let
+      eligibleExplain = toExplain.explain()
+      allLines = eligibleExplain.splitLines
+
+      explainLines = [
+        "binary op +:                             [(1 + 3)]",
+        "unary op neg:                             [1 (-3)]",
+        "stack op dup:                          duplicate 3"
       ]
     for line in explainLines:
       check line in allLines

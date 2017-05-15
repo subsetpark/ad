@@ -191,25 +191,25 @@ proc `$`*(o: Operator): string =
   $o.arity & " op " & operation
 
 proc `$`*(n: float): string =
+  ## Display whole numbers without a decimal.
   if fmod(n, 1.0) == 0:
     $int(n)
   else:
     system.`$` n
 
 proc initStackObject*(val: Num): StackObj =
+  ## Create a new stack number object.
   result.objectType = otNum
   result.value = val
 proc initStackObject*(t: string): StackObj =
+  ## Create a new stack symbol object.
   result.objectType = otSymbol
   result.token = t
-
-proc isEval*(o: StackObj): bool =
-  o.objectType == otNum
 
 proc `$`*(o: StackObj): string =
   ## Display a stack object. Display whole numbers as integers,
   ## unevaluated symbols as tokens.
-  if o.isEval:
+  if o.objectType == otNum:
     $o.value
   else:
     o.token
@@ -264,103 +264,68 @@ proc numberOfArguments(op: Operator): ArgumentNumber =
     of unary: one
     of nullary: op.minimumStackLength.ArgumentNumber
 
-proc explain(o: Operator, x: string): string =
-  case o.uOperation:
-    of squared: "$1 ^ 2" % x
-    of negative: "-$1" % x
-    of absolute: "|$1|" % x
-    of squareRoot: "square root of $1" % x
-    of factorial: x & factorialSign
-    of floor: "floor of $1" % x
-    of ceiling: "ceiling of $1" % x
-    of round: "round $1" % x
-
-proc explain(o: Operator, x, y: string): string =
-  "$1 $2 $3" % [x, $o.bOperation, y]
-
-proc explain(o: Operator, x, y, z: string): string =
-  case o.tOperation:
-    of toCond: "if $1 then $2 else $3" % [x, y, z]
-
-proc stackOperatorExplain(o: Operator, x = "NA", y = "NA"): string =
-  case o.nOperation:
-    of showLast: "peek at stack"
-    of exit: "quit"
-    of showStack: "show stack"
-    of noClear: "clear stack"
-    of dup: "duplicate $1" % x
-    of swapLast: "swap $1 and $2" % [x, y]
-    of drop: "drop $1" % x
-    of popLast: "print and drop $1" % x
-    of explainAll: "explain stack"
-    of noHistory: "show history"
-    of explainToken: "explain $1" % x
-    of noDef: "define $1 as $2" % [x, y]
-    of noDel: "remove definition of $1" % x
-    of noLocals: "display variables"
-
-proc remainderStr(stack: Stack): string =
-  if stack.len > 0: join(stack) & " "
-  else: ""
-
-proc explain*(o: Operator, stack: Stack): string =
-  ## Given an operator, pull out the appropriate number of arguments
-  ## and return a string projecting the given operation.
-  var
-    x, y, z: string
-    remainder: Stack
-    explainStr, remainderStr: string
-
-  case o.numberOfArguments:
-    of three:
-      z = $stack[^1]
-      y = $stack[^2]
-      x = $stack[^3]
-    of two:
-      y = $stack[^1]
-      x = $stack[^2]
-    of one:
-      x = $stack[^1]
-    else:
-      discard
-
-  case o.arity
-  of unary:
-    remainder = stack[0..stack.high - 1]
-    remainderStr = remainder.remainderStr
-    explainStr = "(" & o.explain(x) & ")"
-  of binary:
-    remainder = stack[0..stack.high - 2]
-    remainderStr = remainder.remainderStr
-    explainStr = "(" & o.explain(x, y) & ")"
-  of trinary:
-    remainder = stack[0..stack.high - 3]
-    remainderStr = remainder.remainderStr
-    explainStr = "(" & o.explain(x, y, z) & ")"
-  of nullary:
-    remainder = stack
-    remainderStr = ""
-
-    case o.minimumStackLength
-    of zero, three:
-      explainStr = o.stackOperatorExplain()
-    of one:
-      explainStr = o.stackOperatorExplain(x = x)
-    of two:
-      explainStr = o.stackOperatorExplain(x = x, y = y)
-  let
-    name = $o & ":"
-    explanation = (
-      "[" & remainderStr & explainStr & "]"
-    ).align(50 - name.len)
-
-  name & explanation
-
 proc getArguments*(op: Operator, stack: Stack): Arguments =
   ## Given an operator and a stack, return the appropriate argument values for
   ## that operator.
   let argumentNumber = min(op.numberOfArguments.int, stack.len)
   result = stack[^argumentNumber..^1]
+
+proc explain(o: Operator, argStrings: seq[string]): string =
+  let msg = case o.arity:
+    of unary:
+      case o.uOperation:
+        of squared: "$1 ^ 2"
+        of negative: "-$1"
+        of absolute: "|$1|"
+        of squareRoot: "square root of $1"
+        of factorial: "$1!"
+        of floor: "floor of $1"
+        of ceiling: "ceiling of $1"
+        of round: "round $1"
+    of binary: "$1 " & $o.bOperation & " $2"
+    of trinary:
+      case o.tOperation:
+        of toCond: "if $1 then $2 else $3"
+    of nullary:
+      case o.nOperation:
+        of showLast: "peek at stack"
+        of exit: "quit"
+        of showStack: "show stack"
+        of noClear: "clear stack"
+        of dup: "duplicate $1"
+        of swapLast: "swap $1 and $2"
+        of drop: "drop $1"
+        of popLast: "print and drop $1"
+        of explainAll: "explain stack"
+        of noHistory: "show history"
+        of explainToken: "explain $1"
+        of noDef: "define $2 as $1"
+        of noDel: "remove definition of $1"
+        of noLocals: "display variables"
+  result = msg % argStrings
+
+proc explain*(o: Operator, stack: Stack): string =
+  ## Given an operator, pull out the appropriate number of arguments
+  ## and return a string projecting the given operation.
+  let
+    argStrings = o.getArguments(stack).mapIt($it)
+    name = $o & ":"
+
+  var
+    explanation: string
+    explainStr = o.explain(argStrings)
+
+  case o.arity
+  of nullary:
+    explanation = explainStr
+  else:
+    let
+      r = stack[0..stack.high - argStrings.len]
+      remainderStr = if r.len > 0: join(r) & " " else: ""
+    explanation = "[$1($2)]" % [remainderStr, explainStr]
+
+  explanation = explanation.align(50 - name.len)
+  result = name & explanation
 
 proc getTypes*(op: Operator): Types =
   ## Get the expected types for an operator.
