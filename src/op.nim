@@ -1,3 +1,6 @@
+## Module for defining operators and their behavior. Establishes the basic
+## types, instantiates the operator objects themselves, and defines their
+## behavior under evaluation as well as inspection by the explain command.
 import options, strutils, math, sequtils
 
 const
@@ -98,7 +101,7 @@ type
       of two:
         n2Types: array[x..y, ObjectType]
       of three:
-        n3Types: array[x..y, ObjectType]
+        n3Types: array[x..z, ObjectType]
       of zero:
         discard
   Num* = float
@@ -134,17 +137,24 @@ proc trinaryOperator(operation: TrinaryOperation, types = [otNum, otNum, otNum])
 
   OPERATORS.add(result)
 
-proc nullaryOperator(operation: NullaryOperation, minimumStackLength = zero, xType, yType = otNum): Operator =
+proc nullaryOperator(
+  operation: NullaryOperation,
+  minimumStackLength = zero,
+  xType, yType, zType = otNum
+): Operator =
   result.arity = nullary
   result.nOperation = operation
   result.minimumStackLength = minimumStackLength
+
   case minimumStackLength
-  of zero, three:
+  of zero:
     discard
   of one:
     result.n1Types = [xType]
   of two:
     result.n2Types = [xType, yType]
+  of three:
+    result.n3Types = [xType, yType, zType]
 
   OPERATORS.add(result)
 
@@ -315,10 +325,11 @@ proc explain*(o: Operator, stack: Stack): string =
     explanation: string
     explainStr = o.explain(argStrings)
 
-  case o.arity
-  of nullary:
+  if o.arity == nullary:
+    # Output a description of the effect of the stack operator.
     explanation = explainStr
   else:
+    # Output a projection of the state of the stack after evaluation.
     let
       r = stack[0..stack.high - argStrings.len]
       remainderStr = if r.len > 0: join(r) & " " else: ""
@@ -335,9 +346,10 @@ proc getTypes*(op: Operator): Types =
     of unary: @(op.uTypes)
     of nullary:
       case op.minimumStackLength:
-        of zero, three: @[]
+        of zero: @[]
         of one: @(op.n1Types)
         of two: @(op.n2Types)
+        of three: @(op.n3Types)
 
 proc getTypes*(args: Arguments): Types =
   ## Get the types for a set of command arguments.

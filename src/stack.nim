@@ -133,7 +133,7 @@ proc operate(stack: var Stack, op: Operator): Num =
     result = eval(op, x.value, y.value, z.value)
 
   of nullary:
-    raise newException(ValueError, "Nullary Operators have no return value.")
+    raise newException(ValueError, "Stack operators have no return value.")
 
 proc parseFloat(t: string): Option[Num] =
   const specialTokens = ["."]
