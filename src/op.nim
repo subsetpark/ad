@@ -191,7 +191,7 @@ let
   DEL = nullaryOperator(noDel, minimumStackLength = one, xType = otSymbol)
   LOCALS = nullaryOperator(noLocals)
 
-proc `$`*(o: Operator): string =
+proc `$`*(o: Operator): string {. noSideEffect .}=
   ## Output type and name of operator.
   let operation = case o.arity:
     of unary: $o.uOperation
@@ -200,23 +200,23 @@ proc `$`*(o: Operator): string =
     of trinary: $o.tOperation
   $o.arity & " op " & operation
 
-proc `$`*(n: float): string =
+proc `$`*(n: float): string {. noSideEffect .}=
   ## Display whole numbers without a decimal.
   if fmod(n, 1.0) == 0:
     $int(n)
   else:
     system.`$` n
 
-proc initStackObject*(val: Num): StackObj =
+proc initStackObject*(val: Num): StackObj {. noSideEffect .}=
   ## Create a new stack number object.
   result.objectType = otNum
   result.value = val
-proc initStackObject*(t: string): StackObj =
+proc initStackObject*(t: string): StackObj {. noSideEffect .}=
   ## Create a new stack symbol object.
   result.objectType = otSymbol
   result.token = t
 
-proc `$`*(o: StackObj): string =
+proc `$`*(o: StackObj): string {. noSideEffect .}=
   ## Display a stack object. Display whole numbers as integers,
   ## unevaluated symbols as tokens.
   if o.objectType == otNum:
@@ -267,20 +267,20 @@ proc getOperator*(t: string): Option[Operator] =
   of localsSign: some LOCALS
   else: none(Operator)
 
-proc numberOfArguments(op: Operator): ArgumentNumber =
+proc numberOfArguments(op: Operator): ArgumentNumber {. noSideEffect .}=
   case op.arity:
     of trinary: three
     of binary: two
     of unary: one
     of nullary: op.minimumStackLength.ArgumentNumber
 
-proc getArguments*(op: Operator, stack: Stack): Arguments =
+proc getArguments*(op: Operator, stack: Stack): Arguments {. noSideEffect .}=
   ## Given an operator and a stack, return the appropriate argument values for
   ## that operator.
   let argumentNumber = min(op.numberOfArguments.int, stack.len)
   result = stack[^argumentNumber..^1]
 
-proc explain(o: Operator, argStrings: seq[string]): string =
+proc explain(o: Operator, argStrings: seq[string]): string {. noSideEffect .}=
   let msg = case o.arity:
     of unary:
       case o.uOperation:
@@ -314,7 +314,7 @@ proc explain(o: Operator, argStrings: seq[string]): string =
         of noLocals: "display variables"
   result = msg % argStrings
 
-proc explain*(o: Operator, stack: Stack): string =
+proc explain*(o: Operator, stack: Stack): string {. noSideEffect .}=
   ## Given an operator, pull out the appropriate number of arguments
   ## and return a string projecting the given operation.
   let
@@ -338,7 +338,7 @@ proc explain*(o: Operator, stack: Stack): string =
   explanation = explanation.align(50 - name.len)
   result = name & explanation
 
-proc getTypes*(op: Operator): Types =
+proc getTypes*(op: Operator): Types  {. noSideEffect .}=
   ## Get the expected types for an operator.
   case op.arity:
     of trinary: @(op.tTypes)
@@ -351,11 +351,11 @@ proc getTypes*(op: Operator): Types =
         of two: @(op.n2Types)
         of three: @(op.n3Types)
 
-proc getTypes*(args: Arguments): Types =
+proc getTypes*(args: Arguments): Types {. noSideEffect .}=
   ## Get the types for a set of command arguments.
   args.mapIt(it.objectType)
 
-proc typeCheck*(op: Operator, stack: Stack): bool =
+proc typeCheck*(op: Operator, stack: Stack): bool {. noSideEffect .}=
   ## Perform runtime type checking, checking whether the number and type of
   ## arguments in the stack matches the expected argument number and type of
   ## the operator.
@@ -376,49 +376,35 @@ proc explain*(stack: Stack): string =
   ## current stack.
   OPERATORS.filterIt(it.typeCheck(stack)).mapIt(it.explain(stack)).join("\n")
 
-proc eval*(op: Operator, x, y, z: Num): Num =
+proc eval*(op: Operator, x, y, z: Num): Num {. noSideEffect .}=
   case op.tOperation:
     of toCond:
       if bool(x): y else: z
 
-proc eval*(op: Operator; x, y: Num): Num =
+proc eval*(op: Operator; x, y: Num): Num {. noSideEffect .}=
   ## Evaluation of binary operations.
   case op.bOperation:
-    of plus:
-      result = x + y
-    of minus:
-      result = x - y
-    of times:
-      result = x * y
-    of into:
-      result = x / y
-    of power:
-      result = pow(x, y)
-    of boGreater:
-      result = float(x > y)
-    of boLess:
-      result = float(x < y)
-    of boEqualTo:
-      result = float(x == y)
+    of plus: x + y
+    of minus: x - y
+    of times: x * y
+    of into: x / y
+    of power: pow(x, y)
+    of boGreater: float(x > y)
+    of boLess: float(x < y)
+    of boEqualTo: float(x == y)
 
-proc eval*(op: Operator, x: Num): Num =
+proc eval*(op: Operator, x: Num): Num {. noSideEffect .}=
   ## Evaluation of unary operations.
   case op.uOperation:
-    of squared:
-      result = x * x
-    of negative:
-      result =  -x
-    of absolute:
-      result = abs(x)
-    of squareRoot:
-      result = sqrt(x)
+    of squared: x * x
+    of negative: -x
+    of absolute: abs(x)
+    of squareRoot: sqrt(x)
+    of floor: floor(x)
+    of ceiling: ceil(x)
+    of round: round(x)
     of factorial:
-      if fmod(x, 1.0) != 0:
-        raise newException(ValueError, "Can only take ! of whole numbers.")
-      result = float(fac(int(x)))
-    of floor:
-      result = floor(x)
-    of ceiling:
-      result = ceil(x)
-    of round:
-      result = round(x)
+      # factorial is more accurate...
+      if fmod(x, 1.0) == 0: float(fac(int(x)))
+      # but extend with the gamma function if necessary.
+      else: tgamma(x+1)

@@ -109,7 +109,7 @@ proc mutate(op: Operator, stack: var Stack) =
   of noLocals:
     showLocals()
 
-proc operate(stack: var Stack, op: Operator): Num =
+proc operate(stack: var Stack, op: Operator): Num {. noSideEffect .}=
   case op.arity
   of unary:
     let x = stack.pop()
@@ -159,7 +159,7 @@ proc raiseTypeException(operator: Operator, stack: Stack) =
     ]
   raise newException(ValueError, msg)
 
-proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
+proc evaluateToken(stack: var Stack, t: string): Option[StackObj] =
   ## Evaluate a token in the context of a stack and return a new
   ## StackObj, if appropriate.
   let floatValue = parseFloat(t)
@@ -197,11 +197,10 @@ proc EvaluateToken(stack: var Stack, t: string): Option[StackObj] =
       else:
         raise newException(ValueError, "Unrecognized token: $1" % t)
 
-
 proc ingest(stack: var Stack, t: string) =
   ## Given a token, convert the token into a float or operator and
   ## then process it as appropriate.
-  let newObj = EvaluateToken(stack, t)
+  let newObj = stack.evaluateToken(t)
   if newObj.isSome:
     stack.add(newObj.get())
 
