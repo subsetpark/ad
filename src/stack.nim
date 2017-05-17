@@ -1,9 +1,7 @@
 import strutils, math, options, sequtils, tables
-import op
+import op, parse
 
-const
-  HISTORY_MAX_LENGTH = 250
-  QUOTE* = ['\'', '`']
+const HISTORY_MAX_LENGTH = 250
 
 var
   history: Stack = @[]
@@ -11,23 +9,19 @@ var
 
 proc peek(stack: Stack) =
   ## Display the top element of the stack.
-  if len(stack) > 0:
-    let r = stack[stack.high]
-    echo $r
-  else:
-    echo ""
+  echo(if stack.len > 0: $stack[^1] else: "")
 
 proc show(stack: Stack) =
   ## Display the whole stack.
   echo $stack
 
-proc handleExit*(stack: Stack) =
+proc displaySummary*(stack: Stack) =
   ## Display stack state on exit.
   if stack.len > 0:
     stack.peek()
   if stack.len > 1:
     echo "Stack remaining:"
-    stack[..(stack.high-1)].show()
+    stack[0..(^2)].show()
 
 proc showTail(stack: Stack, tailLength = 8) =
   ## Display the last `tailLength` stack elements, in reverse order.
@@ -135,74 +129,47 @@ proc operate(stack: var Stack, op: Operator): Num {. noSideEffect .}=
   of nullary:
     raise newException(ValueError, "Stack operators have no return value.")
 
-proc parseFloat(t: string): Option[Num] =
-  const specialTokens = ["."]
-  case t
-  of "e": some E
-  of "pi": some PI
-  of "tau": some TAU
-  of specialTokens: none(Num)
-  else:
-    try:
-      some strutils.parseFloat(t)
-    except ValueError:
-      none(Num)
-
 proc raiseTypeException(operator: Operator, stack: Stack) =
   ## Get type information for operator and arguments and raise.
   var
     msg: string
     arguments = operator.getArguments(stack)
 
-  msg = "type failure: [$#] requires types $#, but received types $#" % [
+  msg = "type failure.\n. operator: $1\n. expected types: $2\n. received types: $3" % [
       $operator, $operator.getTypes, $getTypes(arguments)
     ]
   raise newException(ValueError, msg)
 
-proc evaluateToken(stack: var Stack, t: string): Option[StackObj] =
-  ## Evaluate a token in the context of a stack and return a new
-  ## StackObj, if appropriate.
-  let floatValue = parseFloat(t)
+proc evaluateOperator(stack: var Stack, operator: Operator): Option[StackObj] =
+  ## Evaluate an operator against a stack, either mutating the stack or
+  ## returning a new stack object.
 
-  if floatValue.isSome:
-    result = some(initStackObject(floatValue.get()))
+  # Perform runtime type checking, compare expected types of operator against
+  # argument types.
+  if not operator.typeCheck(stack):
+    raiseTypeException(operator, stack)
 
-  elif t in locals:
-    result = some(initStackObject(locals[t]))
+  case operator.arity
+  of nullary:
+    result = none(StackObj)
+    operator.mutate(stack)
 
   else:
-    let maybeOperator = getOperator(t)
-
-    if maybeOperator.isSome:
-      let operator = maybeOperator.get()
-      # Perform runtime type checking, compare expected types of operator
-      # against argument types
-      if not operator.typeCheck(stack):
-        raiseTypeException(operator, stack)
-
-      if operator.arity == nullary:
-        operator.mutate(stack)
-        result = none(StackObj)
-
-      else:
-        result = some(initStackObject(stack.operate(operator)))
-        history.add(result.get())
-        if history.len > HISTORY_MAX_LENGTH:
-          history.delete(0)
-
-    else:
-      case t[0]
-      of QUOTE:
-        result = some(initStackObject(t[1..t.high]))
-      else:
-        raise newException(ValueError, "Unrecognized token: $1" % t)
+    result = some(initStackObject(stack.operate(operator)))
+    history.add(result.get())
+    if history.len > HISTORY_MAX_LENGTH:
+      history.delete(0)
 
 proc ingest(stack: var Stack, t: string) =
   ## Given a token, convert the token into a float or operator and
   ## then process it as appropriate.
-  let newObj = stack.evaluateToken(t)
-  if newObj.isSome:
-    stack.add(newObj.get())
+  let operatorOrObj = locals.parseToken(t)
+  if operatorOrObj.isObj:
+    stack.add(operatorOrObj.obj)
+  else:
+    let newObj = stack.evaluateOperator(operatorOrObj.op)
+    if newObj.isSome:
+      stack.add(newObj.get())
 
 proc ingestLine*(stack: var Stack, tokens: seq[string]) =
   ## Process an entire line of tokens.
