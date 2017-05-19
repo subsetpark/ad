@@ -1,8 +1,8 @@
 ## Token parsing module.
 import options, tables, math, strutils
-import op
+import op, obj
 
-const QUOTE* = {'\'', '`'}
+const QUOTE = {'\'', '`'}
 
 proc parseFloat(t: string): Option[Num] =
   const specialTokens = ["."]
@@ -33,21 +33,18 @@ proc obj(o: StackObj): OperatorOrObj {.inline.} =
 proc parseToken*(locals: Table[string, float], t: string ): OperatorOrObj =
   ## Evaluate a token and return the resulting object, either a stack object or
   ## an operator.
+  if t[0] in QUOTE:
+    return obj(initStackObject(t[1..t.high]))
+
   let floatValue = parseFloat(t)
-
   if floatValue.isSome:
-    result = obj(initStackObject(floatValue.get()))
+    return obj(initStackObject(floatValue.get()))
 
-  elif t in locals:
-    result = obj(initStackObject(locals[t]))
+  if t in locals:
+    return obj(initStackObject(locals[t]))
 
-  else:
-    let maybeOperator = getOperator(t)
-    if maybeOperator.isSome:
-      result = op(maybeOperator.get())
-    else:
-      case t[0]
-      of QUOTE:
-        result = obj(initStackObject(t[1..t.high]))
-      else:
-        raise newException(ValueError, "Unrecognized token: $1" % t)
+  let maybeOperator = getOperator(t)
+  if maybeOperator.isSome:
+    return op(maybeOperator.get())
+  # Fall through.
+  raise newException(ValueError, "Unrecognized token: $1" % t)

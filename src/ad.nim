@@ -1,5 +1,5 @@
 import strutils, rdstdin, options, os
-import stack, op, base
+import base, op, obj, stack
 
 const
   prompt = "> "

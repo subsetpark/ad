@@ -1,5 +1,5 @@
-import strutils, math, options, sequtils, tables
-import op, parse
+import strutils, math, options, tables
+import obj, op, parse, explain
 
 const HISTORY_MAX_LENGTH = 250
 
@@ -37,13 +37,6 @@ proc showHistory*() =
 proc dropLast(stack: var Stack) =
   stack.setLen(stack.len - 1)
 
-proc explain(obj: StackObj, stack: Stack) =
-  let opToExplain = getOperator(obj.token)
-  if opToExplain.isSome:
-    echo opToExplain.get.explain(stack)
-  else:
-    echo "Don't know " & $obj
-
 proc def(name, value: StackObj) =
   let checkOperator = getOperator(name.token)
   if checkOperator.isSome:
@@ -58,7 +51,7 @@ proc del(name: StackObj) =
 
 proc showLocals() =
   for sign, value in locals:
-    echo "$1: $2" % [sign, op.`$`(value)]
+    echo "$1: $2" % [sign, obj.`$`(value)]
 
 proc mutate(op: Operator, stack: var Stack) =
   ## Evaluation of stack operations.
@@ -91,7 +84,7 @@ proc mutate(op: Operator, stack: var Stack) =
     showHistory()
   of explainToken:
     let x = stack.pop()
-    explain(x, stack)
+    echo stack.explain(x)
   of noDef:
     let
       name = stack.pop()
@@ -161,8 +154,8 @@ proc evaluateOperator(stack: var Stack, operator: Operator): Option[StackObj] =
       history.delete(0)
 
 proc ingest(stack: var Stack, t: string) =
-  ## Given a token, convert the token into a float or operator and
-  ## then process it as appropriate.
+  ## Given a token, convert the token into a stack object or operator and then
+  ## process it as appropriate.
   let operatorOrObj = locals.parseToken(t)
   if operatorOrObj.isObj:
     stack.add(operatorOrObj.obj)

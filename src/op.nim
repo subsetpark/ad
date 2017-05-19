@@ -2,6 +2,7 @@
 ## types, instantiates the operator objects themselves, and defines their
 ## behavior under evaluation as well as inspection by the explain command.
 import options, strutils, math, sequtils
+import obj
 
 const
   plusSign = "+"
@@ -37,10 +38,6 @@ const
   condSign = "cond"
 
 type
-  ObjectType = enum
-    otSymbol = "Symbol"
-    otNum = "Number"
-  Types = seq[ObjectType]
   Arity* = enum
     unary, binary, trinary, nullary = "stack"
   ArgumentNumber* = enum
@@ -104,17 +101,8 @@ type
         n3Types: array[x..z, ObjectType]
       of zero:
         discard
-  Num* = float
-  StackObj* = object
-    case objectType: ObjectType
-    of otNum:
-      value*: Num
-    of otSymbol:
-      token*: string
-  Stack* = seq[StackObj]
-  Arguments = seq[StackObj]
 
-var OPERATORS = newSeq[Operator]()
+var OPERATORS* = newSeq[Operator]()
 
 proc unaryOperator(operation: UnaryOperation, types = [otNum]): Operator =
   result.arity = unary
@@ -200,37 +188,6 @@ proc `$`*(o: Operator): string {. noSideEffect .}=
     of trinary: $o.tOperation
   $o.arity & " op " & operation
 
-proc `$`*(n: float): string {. noSideEffect .}=
-  ## Display whole numbers without a decimal.
-  if fmod(n, 1.0) == 0:
-    $int(n)
-  else:
-    system.`$` n
-
-proc initStackObject*(val: Num): StackObj {. noSideEffect .}=
-  ## Create a new stack number object.
-  result.objectType = otNum
-  result.value = val
-proc initStackObject*(t: string): StackObj {. noSideEffect .}=
-  ## Create a new stack symbol object.
-  result.objectType = otSymbol
-  result.token = t
-
-proc `$`*(o: StackObj): string {. noSideEffect .}=
-  ## Display a stack object. Display whole numbers as integers,
-  ## unevaluated symbols as tokens.
-  if o.objectType == otNum:
-    $o.value
-  else:
-    o.token
-
-proc join*[T](stack: T): string =
-  ## Concatenate the stack with spaces.
-  strutils.join(stack, " ")
-
-proc `$`*(types: Types): string = "(" & join(types) & ")"
-proc `$`*(stack: Stack): string = "[" & join(stack) & "]"
-
 proc getOperator*(t: string): Option[Operator] =
   ## Return an operator if it matches to a given token.
   case t
@@ -280,64 +237,6 @@ proc getArguments*(op: Operator, stack: Stack): Arguments {. noSideEffect .}=
   let argumentNumber = min(op.numberOfArguments.int, stack.len)
   result = stack[^argumentNumber..^1]
 
-proc explain(o: Operator, argStrings: seq[string]): string {. noSideEffect .}=
-  let msg = case o.arity:
-    of unary:
-      case o.uOperation:
-        of squared: "$1 ^ 2"
-        of negative: "-$1"
-        of absolute: "|$1|"
-        of squareRoot: "square root of $1"
-        of factorial: "$1!"
-        of floor: "floor of $1"
-        of ceiling: "ceiling of $1"
-        of round: "round $1"
-    of binary: "$1 " & $o.bOperation & " $2"
-    of trinary:
-      case o.tOperation:
-        of toCond: "if $1 then $2 else $3"
-    of nullary:
-      case o.nOperation:
-        of showLast: "peek at stack"
-        of exit: "quit"
-        of showStack: "show stack"
-        of noClear: "clear stack"
-        of dup: "duplicate $1"
-        of swapLast: "swap $1 and $2"
-        of drop: "drop $1"
-        of popLast: "print and drop $1"
-        of explainAll: "explain stack"
-        of noHistory: "show history"
-        of explainToken: "explain $1"
-        of noDef: "define $2 as $1"
-        of noDel: "remove definition of $1"
-        of noLocals: "display variables"
-  result = msg % argStrings
-
-proc explain*(o: Operator, stack: Stack): string {. noSideEffect .}=
-  ## Given an operator, pull out the appropriate number of arguments
-  ## and return a string projecting the given operation.
-  let
-    argStrings = o.getArguments(stack).mapIt($it)
-    name = $o & ":"
-
-  var
-    explanation: string
-    explainStr = o.explain(argStrings)
-
-  if o.arity == nullary:
-    # Output a description of the effect of the stack operator.
-    explanation = explainStr
-  else:
-    # Output a projection of the state of the stack after evaluation.
-    let
-      r = stack[0..stack.high - argStrings.len]
-      remainderStr = if r.len > 0: join(r) & " " else: ""
-    explanation = "[$1($2)]" % [remainderStr, explainStr]
-
-  explanation = explanation.align(50 - name.len)
-  result = name & explanation
-
 proc getTypes*(op: Operator): Types  {. noSideEffect .}=
   ## Get the expected types for an operator.
   case op.arity:
@@ -350,10 +249,6 @@ proc getTypes*(op: Operator): Types  {. noSideEffect .}=
         of one: @(op.n1Types)
         of two: @(op.n2Types)
         of three: @(op.n3Types)
-
-proc getTypes*(args: Arguments): Types {. noSideEffect .}=
-  ## Get the types for a set of command arguments.
-  args.mapIt(it.objectType)
 
 proc typeCheck*(op: Operator, stack: Stack): bool {. noSideEffect .}=
   ## Perform runtime type checking, checking whether the number and type of
@@ -370,11 +265,6 @@ proc typeCheck*(op: Operator, stack: Stack): bool {. noSideEffect .}=
     requiredTypes = op.getTypes()
     argTypes = arguments.getTypes()
   result = requiredTypes == argTypes
-
-proc explain*(stack: Stack): string =
-  ## Generate explanatory text for all operators eligible for the
-  ## current stack.
-  OPERATORS.filterIt(it.typeCheck(stack)).mapIt(it.explain(stack)).join("\n")
 
 proc eval*(op: Operator, x, y, z: Num): Num {. noSideEffect .}=
   case op.tOperation:
