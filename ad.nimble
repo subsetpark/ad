@@ -1,12 +1,9 @@
-import src.base
 # Package
-version       = VERSION
+version       = "0.6.4"
 author        = "Z. D. Smith"
 description   = "A simple RPN calculator"
 license       = "MIT"
 bin           = @["ad"]
-srcDir        = "src"
-binDir        = "bin"
 skipExt       = @["nim"]
 
 # Deps

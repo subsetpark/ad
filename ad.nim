@@ -1,5 +1,5 @@
 import strutils, rdstdin, options, os
-import base, op, obj, stack
+import src.op, src.obj, src.stack
 
 const
   prompt = "> "
@@ -23,7 +23,7 @@ proc handleArgs(args: var seq[string]) =
     echo doc
     quit()
   if "-v" in args or "--version" in args:
-    echo "ad " & VERSION
+    echo "ad " & "0.6.4"
     quit()
 
 var mainStack: Stack = @[]
