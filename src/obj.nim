@@ -18,7 +18,11 @@ type
 
 converter toBool*(n: Num): bool = n.toFloat.bool
 converter numToFloat*(n: Num): float = n.toFloat
-converter toNum*(f: float): Num = f.newRat
+converter toNum*(f: float): Num =
+  if f == 0.0:
+    0.newRat
+  else:
+    f.newRat
 converter toNum*(b: bool): Num = b.int.newRat
 converter toNum*(i: Int): Num = i.newRat
 
