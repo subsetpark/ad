@@ -1,8 +1,8 @@
 ## Module for the basic object type.
-import math, strutils, sequtils
+import math, strutils, sequtils, bignum
 
 type
-  Num* = float
+  Num* = Rat
   ObjectType* = enum
     otSymbol = "Symbol"
     otNum = "Number"
@@ -16,12 +16,18 @@ type
   Stack* = seq[StackObj]
   Arguments* = seq[StackObj]
 
+converter toBool*(n: Num): bool = n.toFloat.bool
+converter numToFloat*(n: Num): float = n.toFloat
+converter toNum*(f: float): Num = f.newRat
+converter toNum*(b: bool): Num = b.int.newRat
+converter toNum*(i: Int): Num = i.newRat
+
 proc `$`*(n: Num): string {. noSideEffect .}=
   ## Display whole numbers without a decimal.
-  if fmod(n, 1.0) == 0:
-    $int(n)
+  if n.isInt:
+    $n.toInt
   else:
-    system.`$` n
+    $n.toFloat
 proc `$`*(o: StackObj): string {. noSideEffect .}=
   ## Display a stack object. Display whole numbers as integers,
   ## unevaluated symbols as tokens.

@@ -2,6 +2,7 @@
 ## types, instantiates the operator objects themselves, and defines their
 ## behavior under evaluation as well as inspection by the explain command.
 import options, strutils, math, sequtils
+import bignum
 import obj
 
 const
@@ -278,8 +279,8 @@ proc eval*(op: Operator; x, y: Num): Num {. noSideEffect .}=
     of minus: x - y
     of times: x * y
     of into: x / y
-    of power: pow(x, y)
-    of boGreater: float(x > y)
+    of power: pow(x.toFloat, y.toFloat)
+    of boGreater: (x > y)
     of boLess: float(x < y)
     of boEqualTo: float(x == y)
 
@@ -295,6 +296,8 @@ proc eval*(op: Operator, x: Num): Num {. noSideEffect .}=
     of round: round(x)
     of factorial:
       # factorial is more accurate...
-      if fmod(x, 1.0) == 0: float(fac(int(x)))
+      if x.isInt: fac(x.toInt).toNum
       # but extend with the gamma function if necessary.
-      else: tgamma(x+1)
+      else:
+        let adjusted: float = x.toFloat + 1.0
+        tgamma(adjusted)

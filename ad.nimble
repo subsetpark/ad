@@ -8,3 +8,4 @@ skipExt       = @["nim"]
 
 # Deps
 requires "nim >= 0.14.2"
+requires "bignum"

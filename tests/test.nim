@@ -1,4 +1,5 @@
 import unittest, random, strutils, sequtils, options
+import bignum
 import src.stack, src.op, src.explain, src.obj
 
 proc ingestLine(stack: var Stack, s: string) =
@@ -6,7 +7,7 @@ proc ingestLine(stack: var Stack, s: string) =
   stack.ingestLine(tokens)
 
 proc values(stack: Stack): seq[float] =
-  stack.mapIt(it.value)
+  stack.mapIt(it.value.toFloat)
 
 suite "ad unit tests":
   setup:
