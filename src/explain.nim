@@ -4,37 +4,51 @@ import op, obj
 
 proc explain(o: Operator, argStrings: seq[string]): string {. noSideEffect .}=
   ## Display help message for operator with arguments.
+  const errorMsg = "Can't explain with given stack"
   let msg = case o.arity:
     of unary:
-      case o.uOperation:
-        of squared: "$1 ^ 2"
-        of negative: "-$1"
-        of absolute: "|$1|"
-        of squareRoot: "square root of $1"
-        of factorial: "$1!"
-        of floor: "floor of $1"
-        of ceiling: "ceiling of $1"
-        of round: "round $1"
-    of binary: "$1 " & $o.bOperation & " $2"
+      if argStrings.len < 1:
+        errorMsg
+      else:
+        case o.uOperation:
+          of squared: "$1 ^ 2"
+          of negative: "-$1"
+          of absolute: "|$1|"
+          of squareRoot: "square root of $1"
+          of factorial: "$1!"
+          of floor: "floor of $1"
+          of ceiling: "ceiling of $1"
+          of round: "round $1"
+    of binary:
+      if argStrings.len < 2:
+        errorMsg
+      else:
+        "$1 " & $o.bOperation & " $2"
     of trinary:
-      case o.tOperation:
-        of toCond: "if $1 then $2 else $3"
+      if argStrings.len < 3:
+        errorMsg
+      else:
+        case o.tOperation:
+          of toCond: "if $1 then $2 else $3"
     of nullary:
-      case o.nOperation:
-        of showLast: "peek at stack"
-        of exit: "quit"
-        of showStack: "show stack"
-        of noClear: "clear stack"
-        of dup: "duplicate $1"
-        of swapLast: "swap $1 and $2"
-        of drop: "drop $1"
-        of popLast: "print and drop $1"
-        of explainAll: "explain stack"
-        of noHistory: "show history"
-        of explainToken: "explain $1"
-        of noDef: "define $2 as $1"
-        of noDel: "remove definition of $1"
-        of noLocals: "display variables"
+      if argStrings.len < o.minimumStackLength.int:
+        errorMsg
+      else:
+        case o.nOperation:
+          of showLast: "peek at stack"
+          of exit: "quit"
+          of showStack: "show stack"
+          of noClear: "clear stack"
+          of dup: "duplicate $1"
+          of swapLast: "swap $1 and $2"
+          of drop: "drop $1"
+          of popLast: "print and drop $1"
+          of explainAll: "explain stack"
+          of noHistory: "show history"
+          of explainToken: "explain $1"
+          of noDef: "define $2 as $1"
+          of noDel: "remove definition of $1"
+          of noLocals: "display variables"
   result = msg % argStrings
 
 proc explain(o: Operator, stack: Stack): string {. noSideEffect .}=
