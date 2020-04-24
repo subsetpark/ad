@@ -1,5 +1,5 @@
 import strutils, rdstdin, options, os
-import src.op, src.obj, src.stack
+import src/op, src/obj, src/stack
 
 const
   prompt = "> "
@@ -39,7 +39,7 @@ proc handleInput(input: string) =
     mainStack = oldStack
     echo getCurrentExceptionMsg()
 
-when isMainModule:
+proc main() =
   # Parse arguments
   var args = commandLineParams()
   handleArgs(args)
@@ -66,3 +66,6 @@ when isMainModule:
 
       if input.len > 0:
         handleInput(input)
+
+when isMainModule:
+  main()

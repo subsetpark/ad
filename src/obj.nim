@@ -1,5 +1,5 @@
 ## Module for the basic object type.
-import math, strutils, sequtils, bignum
+import strutils, sequtils, bignum
 
 type
   Num* = Rat
@@ -48,12 +48,10 @@ proc `$`*(stack: Stack): string = "[" & join(stack) & "]"
 
 proc initStackObject*(val: Num): StackObj {. noSideEffect .}=
   ## Create a new stack number object.
-  result.objectType = otNum
-  result.value = val
+  result = StackObj(objectType: otNum, value: val)
 proc initStackObject*(t: string): StackObj {. noSideEffect .}=
   ## Create a new stack symbol object.
-  result.objectType = otSymbol
-  result.token = t
+  result = StackObj(objectType: otSymbol, token: t)
 
 proc getTypes*(args: Arguments): Types {. noSideEffect .}=
   ## Get the types for a set of command arguments.

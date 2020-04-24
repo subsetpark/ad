@@ -1,6 +1,6 @@
-import unittest, random, strutils, sequtils, options
+import unittest, strutils, sequtils, options
 import bignum
-import src.stack, src.op, src.explain, src.obj
+import src/stack, src/op, src/explain, src/obj
 
 proc ingestLine(stack: var Stack, s: string) =
   let tokens = s.split()

@@ -23,12 +23,11 @@ type OperatorOrObj* = object
     obj*: StackObj
   of false:
     op*: Operator
+
 proc op(o: Operator): OperatorOrObj {.inline.} =
-  result.isObj = false
-  result.op = o
+  result = OperatorOrObj(isObj: false, op: o)
 proc obj(o: StackObj): OperatorOrObj {.inline.} =
-  result.isObj = true
-  result.obj = o
+  result = OperatorOrObj(isObj: true, obj: o)
 
 proc parseToken*(locals: Table[string, Num], t: string ): OperatorOrObj =
   ## Evaluate a token and return the resulting object, either a stack object or

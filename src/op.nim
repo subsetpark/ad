@@ -1,7 +1,7 @@
 ## Module for defining operators and their behavior. Establishes the basic
 ## types, instantiates the operator objects themselves, and defines their
 ## behavior under evaluation as well as inspection by the explain command.
-import options, strutils, math, sequtils
+import options, math
 import bignum
 import obj
 
@@ -106,23 +106,17 @@ type
 var OPERATORS* = newSeq[Operator]()
 
 proc unaryOperator(operation: UnaryOperation, types = [otNum]): Operator =
-  result.arity = unary
-  result.uOperation = operation
-  result.uTypes = types
+  result = Operator(arity: unary, uOperation: operation, uTypes: types)
 
   OPERATORS.add(result)
 
 proc binaryOperator(operation: BinaryOperation, types = [otNum, otNum]): Operator =
-  result.arity = binary
-  result.bOperation = operation
-  result.bTypes = types
+  result = Operator(arity: binary, bOperation: operation, bTypes: types)
 
   OPERATORS.add(result)
 
 proc trinaryOperator(operation: TrinaryOperation, types = [otNum, otNum, otNum]): Operator =
-  result.arity = trinary
-  result.tOperation = operation
-  result.tTypes = types
+  result = Operator(arity: trinary, tOperation: operation, tTypes: types)
 
   OPERATORS.add(result)
 
@@ -131,9 +125,7 @@ proc nullaryOperator(
   minimumStackLength = zero,
   xType, yType, zType = otNum
 ): Operator =
-  result.arity = nullary
-  result.nOperation = operation
-  result.minimumStackLength = minimumStackLength
+  result = Operator(arity: nullary, nOperation: operation, minimumStackLength: minimumStackLength)
 
   case minimumStackLength
   of zero:
@@ -300,4 +292,4 @@ proc eval*(op: Operator, x: Num): Num {. noSideEffect .}=
       # but extend with the gamma function if necessary.
       else:
         let adjusted: float = x.toFloat + 1.0
-        tgamma(adjusted)
+        gamma(adjusted)
