@@ -1,5 +1,5 @@
-import strutils, rdstdin, options, os
-import src/op, src/obj, src/stack
+import strutils, rdstdin, os
+import src/obj, src/stack
 
 const
   prompt = "> "

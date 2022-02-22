@@ -1,4 +1,4 @@
-import strutils, math, options, tables
+import strutils, options, tables
 import obj, op, parse, explain
 
 const HISTORY_MAX_LENGTH = 250
