@@ -1,5 +1,5 @@
 # Package
-version       = "0.7.3"
+version       = "0.7.4"
 author        = "Z. D. Smith"
 description   = "A simple RPN calculator"
 license       = "MIT"

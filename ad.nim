@@ -23,7 +23,7 @@ proc handleArgs(args: var seq[string]) =
     echo doc
     quit()
   if "-v" in args or "--version" in args:
-    echo "ad " & "0.6.4"
+    echo "ad " & "0.7.4"
     quit()
 
 var mainStack: Stack = @[]
